@@ -53,26 +53,31 @@ First, let's measure startup time to track performance improvements:
 
   ;; Show package load times (requires use-package-compute-statistics)
   (setq use-package-compute-statistics t)
-  
+
   (defun show-package-load-times ()
     "Show which packages took longest to load."
     (interactive)
     (use-package-report))
 
-  ;; Optimize garbage collection during startup
+  ;; AGGRESSIVE GC optimization during startup (Emacs 30 tuned)
   (setq gc-cons-threshold most-positive-fixnum
-        gc-cons-percentage 0.6)
+        gc-cons-percentage 0.8)  ; Increased from 0.6
 
   ;; Reduce startup time by minimizing file handler checks
   (defvar file-name-handler-alist-original file-name-handler-alist)
   (setq file-name-handler-alist nil)
 
-  ;; Reset after startup
+  ;; Reset GC after startup - DELAYED for better performance
   (add-hook 'emacs-startup-hook
             (lambda ()
-              (setq gc-cons-threshold 16777216
-                    gc-cons-percentage 0.1
-                    file-name-handler-alist file-name-handler-alist-original)
+              ;; Wait 2 seconds after startup before resetting GC
+              ;; This prevents GC during package loading
+              (run-at-time 2 nil
+                           (lambda ()
+                             (setq gc-cons-threshold (* 64 1024 1024)  ; 64MB (was 16MB)
+                                   gc-cons-percentage 0.1)
+                             (message "GC settings optimized for runtime")))
+              (setq file-name-handler-alist file-name-handler-alist-original)
               (makunbound 'file-name-handler-alist-original)))
 
   ;; Reduce rendering during startup
@@ -103,48 +108,48 @@ Enable modern Emacs features available in recent versions.
       ;; Silence compiler warnings
       (setq native-comp-async-report-warnings-errors nil
             native-comp-warning-on-missing-source nil)
-      
+
       ;; Compile packages in background
       (setq native-comp-deferred-compilation t
             native-comp-async-jobs-number 4)
-      
+
       ;; Better compilation cache
       (setq native-comp-eln-load-path
             (list (expand-file-name "eln-cache/" user-emacs-directory)))
-      
+
       ;; Function to compile all packages
       (defun compile-all-packages ()
         "Native compile all installed packages for better performance."
         (interactive)
         (native-compile-async
          (expand-file-name "elpa/" user-emacs-directory) 'recursively)))
-    
+
     ;; Use short answers for yes/no questions
     (setq use-short-answers t)
-    
+
     ;; Better scrolling
     (setq scroll-conservatively 101
           scroll-margin 3
           scroll-preserve-screen-position t)
-    
+
     ;; Pixel-perfect scrolling (Emacs 29+)
     (when (>= emacs-major-version 29)
       (pixel-scroll-precision-mode 1))
-    
+
     ;; Emacs 30+ exclusive features
     (when (>= emacs-major-version 30)
       ;; Enhanced package-vc for Git packages
       (setq package-vc-register-as-project t)
-      
+
       ;; Better JSON parsing performance
       (setq json-object-type 'hash-table
             json-array-type 'array
             json-key-type 'string)
-      
+
       ;; Improved completion-at-point
       (setq completion-auto-help 'visible
             completion-auto-select 'second-tab)
-      
+
       ;; Enhanced image support
       (setq image-use-external-converter t)))
 
@@ -154,6 +159,12 @@ Enable modern Emacs features available in recent versions.
   (column-number-mode 1)        ; Show column numbers
   (size-indication-mode 1)      ; Show buffer size
   (delete-selection-mode 1)     ; Replace selected text when typing
+
+  ;; Enhanced paren highlighting
+  (setq show-paren-delay 0.0
+        show-paren-style 'mixed  ; Highlight parens, show expression if offscreen
+        show-paren-when-point-inside-paren t
+        show-paren-when-point-in-periphery t)
 #+END_SRC
 
 ** Emacs 30 Exclusive Features
@@ -163,15 +174,15 @@ Take advantage of the latest Emacs 30 capabilities.
   (when (>= emacs-major-version 30)
     ;; Enhanced package-vc for installing packages directly from Git
     (require 'package-vc)
-    
+
     ;; Better completion with completion-preview-mode
     (when (fboundp 'completion-preview-mode)
       (global-completion-preview-mode 1))
-    
+
     ;; Enhanced image support with better scaling
     (setq image-auto-resize 'fit-window
           image-auto-resize-on-window-resize t)
-    
+
     ;; Modern tab-bar with better styling
     (tab-bar-mode 1)
     (setq tab-bar-show 1
@@ -180,33 +191,33 @@ Take advantage of the latest Emacs 30 capabilities.
           tab-bar-tab-hints t
           tab-bar-new-tab-choice "*scratch*"
           tab-bar-format '(tab-bar-format-tabs tab-bar-separator))
-    
-    ;; Spacemacs-inspired tab-bar appearance
-    (set-face-attribute 'tab-bar nil
-                        :inherit 'mode-line
-                        :background "#292b2e"  ; Spacemacs dark background
-                        :foreground "#b2b2b2")
-    (set-face-attribute 'tab-bar-tab nil
-                        :inherit 'mode-line
-                        :background "#5d4d7a"  ; Spacemacs purple accent
-                        :foreground "#ffffff"
-                        :weight 'bold
-                        :box '(:line-width 2 :color "#5d4d7a"))
-    (set-face-attribute 'tab-bar-tab-inactive nil
-                        :inherit 'mode-line-inactive
-                        :background "#212026"  ; Darker background
-                        :foreground "#686868"
-                        :box '(:line-width 2 :color "#212026"))
-    
+
+    ;; Spacemacs-inspired tab-bar appearance (COMMENTED OUT - overrides doom-theme)
+    ;; (set-face-attribute 'tab-bar nil
+    ;;                     :inherit 'mode-line
+    ;;                     :background "#292b2e"  ; Spacemacs dark background
+    ;;                     :foreground "#b2b2b2")
+    ;; (set-face-attribute 'tab-bar-tab nil
+    ;;                     :inherit 'mode-line
+    ;;                     :background "#5d4d7a"  ; Spacemacs purple accent
+    ;;                     :foreground "#ffffff"
+    ;;                     :weight 'bold
+    ;;                     :box '(:line-width 2 :color "#5d4d7a"))
+    ;; (set-face-attribute 'tab-bar-tab-inactive nil
+    ;;                     :inherit 'mode-line-inactive
+    ;;                     :background "#212026"  ; Darker background
+    ;;                     :foreground "#686868"
+    ;;                     :box '(:line-width 2 :color "#212026"))
+
     ;; Enhanced minibuffer completion
     (setq completion-auto-wrap t
           completion-show-help nil)
-    
+
     ;; Better process handling
     (setq process-adaptive-read-buffering t))
 
   ;; Emacs 30 package-vc examples (install packages from Git)
-  ;; (package-vc-install "https://github.com/example/package.git")
+  ;; (package-vc-install "https://git.savannah.gnu.org/git/emacs/org-mode.git")
 #+END_SRC
 
 ** Modern Completion with Built-in Features
@@ -218,17 +229,17 @@ Emacs 30 has significantly improved built-in completion.
     (setq completion-cycle-threshold 3
           completion-flex-nospace nil
           completion-pcm-complete-word-inserts-delimiters t)
-    
+
     ;; Better minibuffer completion
     (setq enable-recursive-minibuffers t
           minibuffer-depth-indicate-mode t)
-    
+
     ;; Improved completion styles
     (setq completion-styles '(orderless basic)
           completion-category-defaults nil
           completion-category-overrides
           '((file (styles partial-completion))))
-    
+
     ;; Use orderless for better fuzzy matching (optional)
     (use-package orderless
       :defer t
@@ -242,11 +253,7 @@ Emacs 30 has significantly improved built-in completion.
             completion-category-overrides '((file (styles basic partial-completion))))))
 #+END_SRC
 ** Enable Package Support
-I set up packages, Melpa, and use-package bright and early so that I can make use of use-package's bind-key macro.
-
-If I recall correctly, when I first copy this set-up into a new machine, I still have to require package, add MELPA, initialize package, and grab use-package, solarized-theme. This could be improved, but it's not so bad.
 *** Use-Package
-Use-package is a handful of things: you can make sure a package is downloaded, efficiently configure it (e.g. after load, or as needed), bind keys in a concise way, and more.
 
 #+BEGIN_SRC emacs-lisp
   (require 'package)
@@ -261,7 +268,8 @@ Use-package is a handful of things: you can make sure a package is downloaded, e
     (package-install 'use-package))
   (require 'use-package)
   (setq use-package-always-ensure t
-        use-package-verbose t)  ; Show loading times for debugging
+        use-package-verbose nil  ; Disable for faster startup (was t)
+        use-package-expand-minimally t)  ; Minimize macro expansion
 #+END_SRC
 
 *** Package Management Utilities
@@ -300,7 +308,6 @@ Helpful functions for maintaining packages.
 #+END_SRC
 
 *** Async
-Async enables asynchronous processing in Emacs for better performance with file operations and package compilation.
 
 #+BEGIN_SRC emacs-lisp
   (use-package async
@@ -309,10 +316,10 @@ Async enables asynchronous processing in Emacs for better performance with file 
     ;; Enable async for dired operations
     (autoload 'dired-async-mode "dired-async.el" nil t)
     (dired-async-mode 1)
-    
+
     ;; Enable async byte compilation for packages
     (async-bytecomp-package-mode 1)
-    
+
     ;; Async email sending (if using email in Emacs)
     (with-eval-after-load 'smtpmail
       (require 'smtpmail-async)
@@ -353,19 +360,18 @@ These functions identify what operating system is hosting Emacs, which can be ha
 #+END_SRC
 ** Graphical Features
 *** Theme
-Using Doom themes for a modern, clean appearance with good org-mode integration.
 
 #+BEGIN_SRC emacs-lisp
   (use-package doom-themes
-    :defer 0.1  ; Load after 0.1 seconds instead of immediately
+    :defer 0.1  ; Defer 0.1 seconds for faster startup
     :config
     ;; Global theme settings
     (setq doom-themes-enable-bold t
           doom-themes-enable-italic t)
-    
+
     ;; Load the Spacemacs-inspired theme
-    (load-theme 'doom-spacegrey t)  ; Spacemacs-like dark theme
-    
+    (load-theme 'doom-solarized-light t)  ; Spacemacs-like dark theme
+
     ;; Alternative Spacemacs-like themes to try:
     ;; (load-theme 'doom-one t)           ; Popular dark theme
     ;; (load-theme 'doom-vibrant t)       ; Vibrant colors
@@ -374,11 +380,9 @@ Using Doom themes for a modern, clean appearance with good org-mode integration.
 
     ;; Enable enhanced features
     (doom-themes-visual-bell-config)   ; Flash mode-line on errors
-    (doom-themes-neotree-config)       ; Custom neotree theme
     (doom-themes-org-config))          ; Better org-mode fontification
-  
 
-  ;; Modern alternative to neotree
+
   (use-package treemacs
     :defer t
     :bind (("<f9>" . treemacs)
@@ -393,93 +397,102 @@ Using Doom themes for a modern, clean appearance with good org-mode integration.
           treemacs-filewatch-mode t
           treemacs-fringe-indicator-mode 'always))
 
-  (use-package treemacs-projectile
-    :after (treemacs projectile))
 
   (use-package treemacs-icons-dired
     :hook (dired-mode . treemacs-icons-dired-enable-once))
 
   (use-package treemacs-magit
     :after (treemacs magit))
-
-  ;; Legacy neotree (consider removing after testing treemacs)
-  ;; (use-package neotree
-  ;;   :after projectile
-  ;;   :commands (neotree-show neotree-hide neotree-dir neotree-find)
-  ;;   :bind ("<f8>" . neotree-projectile-toggle)  ; Changed to F8 to avoid conflict
-  ;;   :custom (neo-theme 'nerd2)
-  ;;    :preface
-  ;;    (defun neotree-projectile-toggle ()
-  ;;      (interactive)
-  ;;      (let ((project-dir
-  ;;         (ignore-errors
-           ;;; Pick one: projectile or find-file-in-project
- ;;            (projectile-project-root)
- ;;            ))
- ;;         (file-name (buffer-file-name))
-  ;;        (neo-smart-open t))
-  ;;    (if (and (fboundp 'neo-global--window-exists-p)
-  ;;         (neo-global--window-exists-p))
- ;;         (neotree-hide)
- ;;      (progn
- ;;         (neotree-show)
- ;;         (if project-dir
- ;;         (neotree-dir project-dir))
- ;;         (if file-name
- ;;         (neotree-find file-name)))))))
 #+END_SRC
 *** Font (Modern Configuration with Ligatures)
 #+BEGIN_SRC emacs-lisp
-  ;; Modern font configuration for Emacs 28+
-  (when (>= emacs-major-version 28)
-    ;; Primary font with better size (height = points * 10)
-    ;; Spacemacs uses Source Code Pro
-    (set-face-attribute 'default nil
-                        :family "Source Code Pro"  ; Spacemacs default font
-                        :height 140  ; 14pt
-                        :weight 'normal)
-    
-    ;; Variable pitch for prose (org-mode, markdown)
-    (set-face-attribute 'variable-pitch nil
-                        :family (cond ((is-mac-p) "SF Pro Text")
-                                     ((is-linux-p) "DejaVu Sans")
-                                     (t "Arial"))
-                        :height 150
-                        :weight 'normal)
-    
-    ;; Fixed pitch for code
-    (set-face-attribute 'fixed-pitch nil
-                        :family "Source Code Pro"
-                        :height 140)
-    
+  ;; Modern font configuration for Emacs 28+ (COMMENTED OUT - overrides doom-theme)
+   (when (>= emacs-major-version 28)
+     ;; Primary font with better size (height = points * 10)
+     ;; Spacemacs uses Source Code Pro
+     (set-face-attribute 'default nil
+                         :family "Source Code Pro"  ; Spacemacs default font
+                         :height 160  ; 14pt
+                         :weight 'normal)
+
+     ;; Variable pitch for prose (org-mode, markdown)
+     (set-face-attribute 'variable-pitch nil
+                         :family (cond ((is-mac-p) "SF Pro Text")
+                                      ((is-linux-p) "DejaVu Sans")
+                                      (t "Arial"))
+                         :height 150
+                         :weight 'normal)
+
+     ;; Fixed pitch for code
+     (set-face-attribute 'fixed-pitch nil
+                         :family "Source Code Pro"
+                         :height 140)
+
     ;; Enable ligatures on macOS (built-in)
     (when (and (is-mac-p) (fboundp 'mac-auto-operator-composition-mode))
       (mac-auto-operator-composition-mode))
-    
+
     ;; Cross-platform ligatures with ligature.el
+    ;; IMPROVED: Better organization, mode-specific configs, proper hooks
     (use-package ligature
-      :defer t
+      :hook ((prog-mode . ligature-mode)
+             (org-mode . ligature-mode))
       :config
-      ;; Enable ligatures in programming modes
-      (ligature-set-ligatures 'prog-mode 
-                              '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
-                                ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
-                                "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
-                                "#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**"
-                                "/=" "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>"
-                                "++" "+++" "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<="
-                                "=<<" "=/=" ">-" ">=" ">=>" ">>" ">>-" ">>=" ">>>" "<*"
-                                "<*>" "<|" "<|>" "<$" "<$>" "<!--" "<-" "<--" "<->" "<+"
-                                "<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-" "<<=" "<<<"
-                                "<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%"))
+      ;; Common programming ligatures (organized by category)
+      (ligature-set-ligatures 'prog-mode
+                              '(;; Arrows
+                                "->" "->>" "<-" "<--" "<->" "=>" "=>>"
+                                "<=>" "==>" "=/=" ">=" "<=" ">-" "<-<"
+
+                                ;; Equality and comparison
+                                "==" "===" "!=" "!==" "=/=" "=:="
+
+                                ;; Double characters
+                                "++" "--" "**" "//" "||" "&&" "##" "$$"
+
+                                ;; Triple and more
+                                "+++" "---" "///" "***"
+
+                                ;; Special operators
+                                "|>" "<|" "<|>" "::" ":::" ":="
+                                "=<<" ">>=" "<<=" ">>>" "<<<"
+
+                                ;; Comments
+                                "/*" "/**" "*/" "//" "///"
+
+                                ;; HTML/XML
+                                "<!--" "-->" "</" "/>"
+
+                                ;; Functional
+                                "~>" "~~>" "~@" "~-"
+
+                                ;; Logic
+                                "||=" "|=" "&&" "??" "?="
+
+                                ;; Math/Operators
+                                "<*" "<*>" "<$" "<$>" "*>" "^=" "$>"
+
+                                ;; Misc
+                                ".=" ".." "..." ".-" "..<" "%%"))
+
+      ;; Language-specific ligatures
+      (ligature-set-ligatures 'emacs-lisp-mode
+                              '("->" "->>" "=>"))
+
+      (ligature-set-ligatures 'haskell-mode
+                              '("->" "->>" "=>" "==>" "<-" "<--"
+                                "::" ":::" "<|" "|>" "<*" "<*>" "<$" "<$>"))
+
+      (ligature-set-ligatures 'rust-mode
+                              '("->" "->>" "=>" "==>" "::" "!=" "!=="
+                                "&&" "||" "|>" ">="))
+
+      (ligature-set-ligatures 'python-mode
+                              '("->" "=>" "!=" "==" "===" ">=" "<=" "**"))
+
+      ;; Enable globally as fallback
       (global-ligature-mode t)))
-  
-  ;; Fallback for older Emacs
-  (when (< emacs-major-version 28)
-    (set-face-attribute 'default nil
-                        :family "Source Code Pro"
-                        :height 140))
-  
+
   ;; Font size adjustment hydra
   (defhydra hydra-font-size (:color red :hint nil)
     "
@@ -504,13 +517,13 @@ Using Doom themes for a modern, clean appearance with good org-mode integration.
     ("3" (lambda () (interactive) (set-face-attribute 'default nil :height 160)))
     ("4" (lambda () (interactive) (set-face-attribute 'default nil :height 180)))
     ("q" nil "quit" :color blue))
-  
+
   (bind-key "C-c z" 'hydra-font-size/body)
 #+END_SRC
 *** Prettify Symbols and Icons
 #+BEGIN_SRC emacs-lisp
   (global-prettify-symbols-mode +1)
-  
+
   ;; Modern icons for Emacs
   (use-package all-the-icons
     :defer t
@@ -519,19 +532,19 @@ Using Doom themes for a modern, clean appearance with good org-mode integration.
     ;; Run M-x all-the-icons-install-fonts on first install
     (unless (find-font (font-spec :name "all-the-icons"))
       (message "Run M-x all-the-icons-install-fonts to install icon fonts")))
-  
+
   ;; Icons in dired
   (use-package all-the-icons-dired
     :defer t
     :hook (dired-mode . all-the-icons-dired-mode))
-  
+
   ;; Icons in completion (minibuffer)
   (use-package all-the-icons-completion
     :defer t
     :after (marginalia all-the-icons)
     :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
     :init (all-the-icons-completion-mode))
-  
+
   ;; Rainbow delimiters for better parentheses visibility
   (use-package rainbow-delimiters
     :defer t
@@ -554,7 +567,7 @@ Disable unnecessary GUI elements for a cleaner, more focused interface.
   ;; (when (fboundp 'menu-bar-mode) (menu-bar-mode -1))
   ;; (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
   ;; (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-  
+
   ;; Keep menu bar on macOS for better integration
   (when (and (display-graphic-p) (eq system-type 'darwin))
     (menu-bar-mode 1))
@@ -565,14 +578,14 @@ Disable unnecessary GUI elements for a cleaner, more focused interface.
         initial-scratch-message ""
         inhibit-startup-echo-area-message t)
 #+END_SRC
-**** Mode Line (Modern with doom-modeline)
-Modern, beautiful mode line with icons and useful information.
+**** Mode Line (doom-modeline)
 
 #+BEGIN_SRC emacs-lisp
-  ;; Modern mode line with doom-modeline
+  ;; Modern mode line with doom-modeline (deferred for fast startup)
   (use-package doom-modeline
-    :defer 0.1
-    :init (doom-modeline-mode 1)
+    :defer 0.2  ; Defer 0.2 seconds
+    :init
+    (add-hook 'after-init-hook #'doom-modeline-mode)
     :config
     (setq doom-modeline-height 25
           doom-modeline-bar-width 3
@@ -592,7 +605,7 @@ Modern, beautiful mode line with icons and useful information.
           doom-modeline-irc nil
           doom-modeline-mu4e nil
           doom-modeline-gnus nil))
-  
+
 
 #+END_SRC
 ** Security
@@ -611,20 +624,29 @@ Modern, beautiful mode line with icons and useful information.
 [[https://orgmode.org/worg/org-tutorials/encrypting-files.html][Encrypting specific entries in an org File with org-crypt]]
 
 #+BEGIN_SRC emacs-lisp
-(require 'org-crypt)
-(org-crypt-use-before-save-magic)
-(setq org-tags-exclude-from-inheritance (quote ("crypt")))
-;; GPG key to use for encryption
-;; Either the Key ID or set to nil to use symmetric encryption.
-(setq org-crypt-key "0x63B9DBA276A4E225")
+;; Defer org-crypt loading for faster startup
+(with-eval-after-load 'org
+  (require 'org-crypt)
+  (org-crypt-use-before-save-magic)
+  (setq org-tags-exclude-from-inheritance (quote ("crypt")))
+  ;; GPG key to use for encryption
+  ;; Either the Key ID or set to nil to use symmetric encryption.
+  (setq org-crypt-key "0x63B9DBA276A4E225"))
 #+END_SRC
 
-Problem with Emacs 29.1[[https://www.masteringemacs.org/article/keeping-secrets-in-emacs-gnupg-auth-sources][ There are known issues in Emacs 29.1 concerning GnuPG version 2.4.1 or higher. Downgrading to 2.4.0 or earlier fixes it.]]
+EMACS 30 UPDATE: GnuPG 2.4.1 issues fixed in Emacs 30. Legacy workarounds removed.
 #+BEGIN_SRC emacs-lisp
-  (setq auth-source-debug t)
-  (setf epa-pinentry-mode 'loopback)
-  (fset 'epg-wait-for-status 'ignore)
-  (setq epa-file-select-keys nil)
+  ;; Modern encryption settings (Emacs 30+)
+  (when (>= emacs-major-version 30)
+    (setq epa-pinentry-mode 'loopback
+          epa-file-select-keys nil))
+
+  ;; For older Emacs versions (29.x), keep legacy workarounds
+  (when (and (= emacs-major-version 29) (< emacs-minor-version 2))
+    (setq auth-source-debug t)
+    (setf epa-pinentry-mode 'loopback)
+    (fset 'epg-wait-for-status 'ignore)
+    (setq epa-file-select-keys nil))
 #+END_SRC
 
 ** Backups
@@ -684,19 +706,24 @@ Some features and settings are disabled by default; this is sane behavior for ne
 #+END_SRC
 *** Casing
 The following advice makes the upcase/downcase/capitalize-word functions more usable. Thanks, [[http://oremacs.com/2014/12/23/upcase-word-you-silly/][Oleh]]!
+UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 
 #+BEGIN_SRC emacs-lisp
-  (defadvice upcase-word (before upcase-word-advice activate)
-    (unless (looking-back "\\b" nil)
-      (backward-word)))
+  ;; Modern advice using advice-add (Emacs 24.4+)
+  (advice-add 'upcase-word :before
+              (lambda (&rest _)
+                (unless (looking-back "\\b" nil)
+                  (backward-word))))
 
-  (defadvice downcase-word (before downcase-word-advice activate)
-    (unless (looking-back "\\b" nil)
-      (backward-word)))
+  (advice-add 'downcase-word :before
+              (lambda (&rest _)
+                (unless (looking-back "\\b" nil)
+                  (backward-word))))
 
-  (defadvice capitalize-word (before capitalize-word-advice activate)
-    (unless (looking-back "\\b" nil)
-      (backward-word)))
+  (advice-add 'capitalize-word :before
+              (lambda (&rest _)
+                (unless (looking-back "\\b" nil)
+                  (backward-word))))
 #+END_SRC
 
 Also, unbind downcase region, which has plagued my documents for eons.
@@ -706,12 +733,16 @@ Also, unbind downcase region, which has plagued my documents for eons.
 #+END_SRC
 *** Working with the Mark
 From Artur's article, "[[http://endlessparentheses.com/faster-pop-to-mark-command.html][Faster Pop to Mark Command]]."
+UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 
 #+BEGIN_SRC emacs-lisp
-  (defadvice pop-to-mark-command (around ensure-new-position activate)
-    (let ((p (point)))
-      (dotimes (i 10)
-        (when (= p (point)) ad-do-it))))
+  ;; Modern advice using advice-add (Emacs 24.4+)
+  (advice-add 'pop-to-mark-command :around
+              (lambda (orig-fun &rest args)
+                (let ((p (point)))
+                  (dotimes (i 10)
+                    (when (= p (point))
+                      (apply orig-fun args))))))
 
   (setq set-mark-command-repeat-pop t)
 #+END_SRC
@@ -778,14 +809,16 @@ I [[http://endlessparentheses.com/Meta-Binds-Part-1%25253A-Drunk-in-the-Dark.htm
 #+END_SRC
 ** Copying and Killing
 This advises kill-region (C-w) so that, if no region is selected, it kills or copies the current line.
+UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 
 #+BEGIN_SRC emacs-lisp
-  (defadvice kill-region (before slick-cut activate compile)
-    "When called interactively with no active region, kill a single line instead."
-    (interactive
-     (if mark-active (list (region-beginning) (region-end))
-       (list (line-beginning-position)
-             (line-beginning-position 2)))))
+  ;; Modern advice using advice-add (Emacs 24.4+)
+  (advice-add 'kill-region :before
+              (lambda (&rest args)
+                (interactive
+                 (if mark-active (list (region-beginning) (region-end))
+                   (list (line-beginning-position)
+                         (line-beginning-position 2))))))
 #+END_SRC
 ** backward-kill-line
 This binding comes from [[http://emacsredux.com/blog/2013/04/08/kill-line-backward/][Emacs Redux]]. Note that we don't need a new function, just an anonymous function.
@@ -797,27 +830,28 @@ This binding comes from [[http://emacsredux.com/blog/2013/04/08/kill-line-backwa
                               (indent-according-to-mode)))
 #+END_SRC
 ** Sentence and Paragraph Commands
-By default, sentence-end-double-space is set to t. That convention may be programatically convenient, but that's not how I write. I want to be able to write normal sentences, but still be able to fill normally. Let to the rescue!
+By default, sentence-end-double-space is set to t. That convention may be programatically convenient, but that's not how I write. I want to be able to write normal sentences, but still be able to fill normally.
+UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 
 #+BEGIN_SRC emacs-lisp
-  (defadvice forward-sentence (around real-forward)
-    "Consider a sentence to have one space at the end."
-    (let ((sentence-end-double-space nil))
-      ad-do-it))
+  ;; Modern advice using advice-add (Emacs 24.4+)
+  (advice-add 'forward-sentence :around
+              (lambda (orig-fun &rest args)
+                "Consider a sentence to have one space at the end."
+                (let ((sentence-end-double-space nil))
+                  (apply orig-fun args))))
 
-  (defadvice backward-sentence (around real-backward)
-    "Consider a sentence to have one space at the end."
-    (let ((sentence-end-double-space nil))
-      ad-do-it))
+  (advice-add 'backward-sentence :around
+              (lambda (orig-fun &rest args)
+                "Consider a sentence to have one space at the end."
+                (let ((sentence-end-double-space nil))
+                  (apply orig-fun args))))
 
-  (defadvice kill-sentence (around real-kill)
-    "Consider a sentence to have one space at the end."
-    (let ((sentence-end-double-space nil))
-      ad-do-it))
-
-  (ad-activate 'forward-sentence)
-  (ad-activate 'backward-sentence)
-  (ad-activate 'kill-sentence)
+  (advice-add 'kill-sentence :around
+              (lambda (orig-fun &rest args)
+                "Consider a sentence to have one space at the end."
+                (let ((sentence-end-double-space nil))
+                  (apply orig-fun args))))
 #+END_SRC
 
 A slightly less tricky matter is the default binding of backward- and forward-paragraph, which are at the inconvenient M-{ and M-}. This makes a bit more sense, no?
@@ -870,7 +904,8 @@ For code folding, which is similar to narrowing and widening but different.
 
 #+BEGIN_SRC emacs-lisp
   (use-package hideshow
-    :hook ((prog-mode . hs-minor-mode)))
+    :defer t
+    :hook (prog-mode . hs-minor-mode))
 
   (defun toggle-fold ()
     (interactive)
@@ -900,7 +935,7 @@ A lot of modes let you change from read-only to writeable, or backwards: files, 
              :prefix "C-x t"
              ("d" . toggle-debug-on-error)
              ("f" . toggle-fold)
-             ("l" . linum-mode)
+             ("l" . toggle-line-numbers)  ; Updated from linum-mode (Phase 6)
              ("n" . narrow-or-widen-dwim)
              ("o" . org-mode)
              ("r" . read-write-toggle)
@@ -971,20 +1006,16 @@ The configuration sets PATH directly for faster startup. Customize these paths b
 **** Key Bindings
 #+BEGIN_SRC emacs-lisp
   (when (is-mac-p)
-  ;;  (setq mac-option-key-is-meta nil
-  ;;        mac-command-key-is-meta t
-  ;;        mac-command-modifier 'meta
-  ;;        mac-option-modifier nil))
     (setq mac-command-modifier 'super
           mac-option-modifier 'meta
-        mac-right-option-modifier 'none
+          mac-right-option-modifier 'none
           mac-control-modifier 'control
           ns-function-modifier 'hyper))
 #+END_SRC
 **** Face Attributes
 #+BEGIN_SRC emacs-lisp
-  (when (is-mac-p)
-    (set-face-attribute 'default nil :height 165))
+  ;; (when (is-mac-p)
+  ;;   (set-face-attribute 'default nil :height 165))
 #+END_SRC
 ** Shells
 Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main features I tend to use are setting aliases, executing e-Lisp, and writing command output to a buffer.
@@ -992,9 +1023,9 @@ Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main fea
 *** Eshell
 #+BEGIN_SRC emacs-lisp
   (use-package eshell
+    :defer t
     :bind (("<f1>" . eshell))
-    :hook ((eshell-mode . with-editor-export-editor)
-           (eshell-mode . setup-company-eshell-autosuggest))
+    :hook ((eshell-mode . with-editor-export-editor))
     :init
     (setq eshell-banner-message "")
 
@@ -1005,14 +1036,14 @@ Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main fea
     (use-package esh-autosuggest
       :defer t
       :hook (eshell-mode . esh-autosuggest-mode))
-    
+
     ;; Modern eshell enhancements
     (use-package eshell-syntax-highlighting
       :defer t
       :after esh-mode
       :config
       (eshell-syntax-highlighting-global-mode +1))
-    
+
     (use-package eshell-prompt-extras
       :defer t
       :after esh-mode
@@ -1023,6 +1054,7 @@ Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main fea
 *** Shell Mode
 #+BEGIN_SRC emacs-lisp
   (use-package shell
+    :defer t
     :bind (:map shell-mode-map
                 ("<s-up>" . comint-previous-input)
                 ("<s-down>" . comint-next-input))
@@ -1034,7 +1066,7 @@ Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main fea
       ;; Fast alternative: Set PATH directly (recommended for speed)
       (setenv "PATH" (concat "/usr/local/bin:/opt/homebrew/bin:" (getenv "PATH")))
       (setq exec-path (append '("/usr/local/bin" "/opt/homebrew/bin") exec-path))
-      
+
       ;; Optional: Use exec-path-from-shell for more complete environment
       ;; Uncomment if you need more environment variables
       ;; (use-package exec-path-from-shell
@@ -1056,7 +1088,8 @@ For me, Dired is one of Emacs' (less-heralded) killer apps, along with Org-Mode 
 
 #+BEGIN_SRC emacs-lisp
   (use-package dired
-    :ensure f
+    :ensure nil  ; built-in package
+    :defer t
     :bind (("<f2>" . dired)
            ("C-x C-d" . dired)
            :map dired-mode-map
@@ -1107,8 +1140,9 @@ For me, Dired is one of Emacs' (less-heralded) killer apps, along with Org-Mode 
       :config
       (dired-quick-sort-setup))
     (use-package dired-collapse
-      :hook dired-mode)
-    
+      :defer t
+      :hook (dired-mode . dired-collapse-mode))
+
     ;; Modern dired enhancements
     (use-package dired-rainbow
       :defer t
@@ -1141,27 +1175,24 @@ Dired-details lets me show or hide the details with ) and (, respectively. If, f
 ** Modern Search and Navigation
 #+BEGIN_SRC emacs-lisp
   ;; Primary search bindings using Consult
-  ;; consult-ripgrep is configured in the Consult section above
-  (bind-keys ("C-c d" . consult-ripgrep)
+  ;; Updated from affe to use consult exclusively (Emacs 30 optimization)
+  (bind-keys ("C-c f" . consult-find)        ; Replaced affe-find
+             ("C-c g" . consult-ripgrep)     ; Replaced affe-grep
+             ("C-c d" . consult-ripgrep)
              ("C-c D" . consult-ripgrep)
              ("C-s" . consult-line)
              ("C-r" . consult-line))
-  
+
   ;; Enhanced search with wgrep for editing results
   (use-package wgrep
     :defer t
     :config
     (setq wgrep-auto-save-buffer t
           wgrep-enable-key "r"))
-  
-  ;; Modern file finder with affe (alternative to consult-find)
-  (use-package affe
-    :defer t
-    :bind (("C-c f" . affe-find)
-           ("C-c g" . affe-grep))
-    :config
-    (setq affe-regexp-function #'orderless-pattern-compiler
-          affe-highlight-function #'orderless-highlight-matches))
+
+  ;; REMOVED: affe package (duplicate of consult functionality)
+  ;; Migration: Use consult-find and consult-ripgrep instead
+  ;; Keybindings updated below to use consult equivalents
 #+END_SRC
 ** Modern Development Tools
 
@@ -1171,32 +1202,24 @@ Dired-details lets me show or hide the details with ) and (, respectively. If, f
     :defer t)  ; Only load when needed
 #+END_SRC
 
-*** Language Server Protocol (LSP)
-Modern IDE-like features for programming languages:
-
-
-
 *** Eglot (Built-in LSP Client, Emacs 29+)
-Lighter alternative to lsp-mode with enhanced Emacs 30 features:
 
 #+BEGIN_SRC emacs-lisp
-  ;; Use built-in Eglot for LSP (Emacs 29+)
   (when (>= emacs-major-version 29)
-    ;; Enhanced Eglot configuration for Emacs 30
     (when (>= emacs-major-version 30)
       (setq eglot-sync-connect nil  ; Async connection
             eglot-autoshutdown t    ; Auto-shutdown unused servers
             eglot-extend-to-xref t)) ; Better xref integration
-    
-    ;; Auto-enable Eglot for programming modes
+
+
     (add-hook 'python-mode-hook 'eglot-ensure)
     (add-hook 'js-mode-hook 'eglot-ensure)
     (add-hook 'typescript-mode-hook 'eglot-ensure)
     (add-hook 'rust-mode-hook 'eglot-ensure)
     (add-hook 'go-mode-hook 'eglot-ensure)
     (add-hook 'java-mode-hook 'eglot-ensure)
-    
-    ;; Tree-sitter mode hooks (Emacs 30)
+
+
     (when (>= emacs-major-version 30)
       (add-hook 'python-ts-mode-hook 'eglot-ensure)
       (add-hook 'js-ts-mode-hook 'eglot-ensure)
@@ -1209,37 +1232,35 @@ Lighter alternative to lsp-mode with enhanced Emacs 30 features:
 These are helper packages that make Emacs even more awesome.
 
 ** Emacs 30 Development Enhancements
-Modern development features available in Emacs 30.
 
 #+BEGIN_SRC emacs-lisp
   (when (>= emacs-major-version 30)
-    ;; Enhanced debugging with better GDB integration
     (setq gdb-many-windows t
           gdb-show-main t)
-    
-    ;; Better project management with built-in project.el enhancements
+
+
     (setq project-switch-commands
           '((project-find-file "Find file")
             (project-find-regexp "Find regexp")
             (project-dired "Dired")
             (project-eshell "Eshell")
             (magit-project-status "Magit" ?g)))
-    
-    ;; Enhanced xref with better navigation
+
+
     (setq xref-search-program 'ripgrep  ; Use ripgrep if available
           xref-show-definitions-function #'xref-show-definitions-completing-read)
-    
-    ;; Better compilation mode
+
+
     (setq compilation-scroll-output 'first-error
           compilation-skip-threshold 2)
-    
-    ;; Enhanced tab-bar for project switching
+
+
     (tab-bar-mode 1)
     (setq tab-bar-new-tab-choice "*scratch*"
           tab-bar-close-button-show nil
           tab-bar-new-button-show nil))
 
-  ;; Modern project management keybindings
+
   (when (>= emacs-major-version 30)
     (bind-keys :prefix-map project-prefix-map
                :prefix "C-x p"
@@ -1253,7 +1274,6 @@ Modern development features available in Emacs 30.
 #+END_SRC
 
 ** Hydra
-Hydra provides convenient transient key bindings for complex workflows. It creates temporary keymaps that stay active until you press a key that's not part of the hydra.
 
 #+BEGIN_SRC emacs-lisp
   (use-package hydra
@@ -1263,7 +1283,6 @@ Hydra provides convenient transient key bindings for complex workflows. It creat
     (setq hydra-lv nil))
 #+END_SRC
 *** Zooming
-A hydra for easy text scaling with intuitive key bindings.
 
 #+BEGIN_SRC emacs-lisp
   (defhydra hydra-zoom (:color red :hint nil)
@@ -1309,23 +1328,24 @@ Adapted from [[https://github.com/sachac/.emacs.d/blob/gh-pages/Sacha.org#make-w
 
 
 ** Completion Frameworks
-Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more modern Vertico/Consult/Embark stack for better performance and maintainability.
+Modern completion stack using Vertico/Consult/Embark/Marginalia/Orderless.
+
 
 *** Vertico (Modern Completion UI)
 #+BEGIN_SRC emacs-lisp
   ;; Vertico - Fast and minimal vertical completion UI
   (use-package vertico
-    :defer t
+    :defer 0.1  ; Defer 0.1 seconds for faster startup
     :init
-    (vertico-mode)
+    (add-hook 'after-init-hook #'vertico-mode)
     :config
     (setq vertico-cycle t
           vertico-resize t
           vertico-count 15)
-    
+
     ;; Enable vertico-multiform for different completion styles
     (vertico-multiform-mode)
-    
+
     ;; Configure display for different commands
     (setq vertico-multiform-commands
           '((consult-line buffer)
@@ -1348,9 +1368,9 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
 #+BEGIN_SRC emacs-lisp
   ;; Marginalia - Rich annotations in the minibuffer
   (use-package marginalia
-    :defer t
+    :defer 0.1  ; Defer 0.1 seconds for faster startup
     :init
-    (marginalia-mode)
+    (add-hook 'after-init-hook #'marginalia-mode)
     :bind (:map minibuffer-local-map
                 ("M-A" . marginalia-cycle))
     :config
@@ -1367,22 +1387,22 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
            ("C-c h" . consult-history)
            ("C-c m" . consult-mode-command)
            ("C-c k" . consult-kmacro)
-           
+
            ;; C-x bindings (ctl-x-map)
            ("C-x M-:" . consult-complex-command)
            ("C-x b" . consult-buffer)
            ("C-x 4 b" . consult-buffer-other-window)
            ("C-x 5 b" . consult-buffer-other-frame)
            ("C-x r b" . consult-bookmark)
-           
+
            ;; Custom M-# bindings for fast register access
            ("M-#" . consult-register-load)
            ("M-'" . consult-register-store)
            ("C-M-#" . consult-register)
-           
+
            ;; Other custom bindings
            ("M-y" . consult-yank-pop)
-           
+
            ;; M-g bindings (goto-map)
            ("M-g e" . consult-compile-error)
            ("M-g f" . consult-flymake)
@@ -1393,7 +1413,7 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
            ("M-g k" . consult-global-mark)
            ("M-g i" . consult-imenu)
            ("M-g I" . consult-imenu-multi)
-           
+
            ;; M-s bindings (search-map)
            ("M-s d" . consult-find)
            ("M-s D" . consult-locate)
@@ -1404,7 +1424,7 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
            ("M-s L" . consult-line-multi)
            ("M-s k" . consult-keep-lines)
            ("M-s u" . consult-focus-lines)
-           
+
            ;; Isearch integration
            ("M-s e" . consult-isearch-history)
            :map isearch-mode-map
@@ -1412,26 +1432,26 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
            ("M-s e" . consult-isearch-history)
            ("M-s l" . consult-line)
            ("M-s L" . consult-line-multi)
-           
+
            ;; Minibuffer history
            :map minibuffer-local-map
            ("M-s" . consult-history)
            ("M-r" . consult-history))
-    
+
     :hook (completion-list-mode . consult-preview-at-point-mode)
-    
+
     :init
     ;; Optionally configure the register formatting
     (setq register-preview-delay 0.5
           register-preview-function #'consult-register-format)
-    
+
     ;; Optionally tweak the register preview window
     (advice-add #'register-preview :override #'consult-register-window)
-    
+
     ;; Use Consult to select xref locations with preview
     (setq xref-show-xrefs-function #'consult-xref
           xref-show-definitions-function #'consult-xref)
-    
+
     :config
     ;; Optionally configure preview
     (consult-customize
@@ -1442,24 +1462,54 @@ Primary completion with Ivy/Counsel/Swiper. Consider migrating to the more moder
      consult--source-bookmark consult--source-file-register
      consult--source-recent-file consult--source-project-recent-file
      :preview-key '(:debounce 0.4 any))
-    
+
     ;; Optionally configure the narrowing key
     (setq consult-narrow-key "<"))
 #+END_SRC
 
 *** Embark (Contextual Actions)
 #+BEGIN_SRC emacs-lisp
+  ;; Consult-dir - Enhanced directory navigation
+  (use-package consult-dir
+    :defer t
+    :bind (("C-x C-d" . consult-dir)
+           :map minibuffer-local-completion-map
+           ("C-x C-d" . consult-dir)
+           ("C-x C-j" . consult-dir-jump-file))
+    :config
+    (setq consult-dir-project-list-function nil)  ; Disable project integration if not needed
+
+    ;; Add common directory sources
+    (setq consult-dir-default-command #'consult-dir-dired)
+
+    ;; Integration with project.el (Emacs 28+)
+    (when (>= emacs-major-version 28)
+      (defun consult-dir--project-dirs ()
+        "Return list of known project directories."
+        (when (fboundp 'project-known-project-roots)
+          (project-known-project-roots)))
+
+      (add-to-list 'consult-dir-sources
+                   '(:name "Project"
+                           :narrow ?p
+                           :category file
+                           :face consult-file
+                           :history file-name-history
+                           :enabled (lambda () (fboundp 'project-known-project-roots))
+                           :items consult-dir--project-dirs)
+                   'append)))
+
   ;; Embark - Contextual actions on completion candidates
   (use-package embark
     :defer t
     :bind (("C-." . embark-act)
            ("C-;" . embark-dwim)
            ("C-h B" . embark-bindings))
-    
+
     :init
     ;; Optionally replace the key help with a completing-read interface
     (setq prefix-help-command #'embark-prefix-help-command)
-    
+
     :config
     ;; Hide the mode line of the Embark live/completions buffers
     (add-to-list 'display-buffer-alist
@@ -1494,52 +1544,79 @@ Now using consult-recent-file instead of counsel-recentf.
   ;; Convenient M-x binding
   (bind-key "C-x M-m" 'execute-extended-command)
 #+END_SRC
-*** Company Mode
-Configurations via [[https://oremacs.com/2017/12/27/company-numbers/][Using digits to select company-mode candidates]].
+*** Corfu (Modern In-Buffer Completion)
+Modern, fast completion with Emacs 30 optimization and tree-sitter support.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package company
-    :defer 0.5
-    :bind (("C-." . company-complete)
-           :map company-active-map
-           ("C-n" . company-select-next)
-           ("C-p" . company-select-previous)
-           ("C-d" . company-show-doc-buffer)
-           ("<tab>" . company-complete))
-    :hook (after-init . global-company-mode)
+  ;; Corfu - Fast and modern in-buffer completion
+  (use-package corfu
+    :defer 0.2  ; Defer 0.2 seconds for faster startup
+    :init
+    (add-hook 'after-init-hook #'global-corfu-mode)
+    :bind (:map corfu-map
+                ("C-n" . corfu-next)
+                ("C-p" . corfu-previous)
+                ("<tab>" . corfu-insert)
+                ("<return>" . corfu-insert)
+                ("C-g" . corfu-quit))
     :config
-    (setq company-show-numbers t
-          company-tooltip-align-annotations t)
+    (setq corfu-cycle t                 ; Cycle through candidates
+          corfu-auto t                  ; Auto-show completions
+          corfu-auto-delay 0.2          ; Delay before showing (seconds)
+          corfu-auto-prefix 2           ; Min chars to trigger
+          corfu-quit-no-match 'separator ; How to quit if no match
+          corfu-preview-current nil     ; Don't preview current candidate
+          corfu-preselect 'prompt       ; Preselect first candidate
+          corfu-on-exact-match nil      ; Don't auto-insert exact match
+          corfu-scroll-margin 5         ; Scroll margin in candidates
+          corfu-max-width 100           ; Max width of popup
+          corfu-min-width 20))          ; Min width of popup
 
-    (let ((map company-active-map))
-      (mapc
-       (lambda (x)
-         (define-key map (format "%d" x) 'ora-company-number))
-       (number-sequence 0 9))
-      (define-key map " " (lambda ()
-                            (interactive)
-                            (company-abort)
-                            (self-insert-command 1)))
-      (define-key map (kbd "<return>") nil))
+  ;; Corfu extensions (built-in to corfu package)
+  (with-eval-after-load 'corfu
+    ;; Enable corfu-popupinfo for documentation popups
+    (require 'corfu-popupinfo)
+    (corfu-popupinfo-mode 1)
+    (setq corfu-popupinfo-delay '(0.5 . 0.2)
+          corfu-popupinfo-max-height 20)
+    (define-key corfu-map (kbd "C-d") #'corfu-popupinfo-toggle)
+    (define-key corfu-map (kbd "C-h") #'corfu-popupinfo-documentation)
 
-    (defun ora-company-number ()
-      "Forward to `company-complete-number'.
+    ;; Enable corfu-history for completion history
+    (require 'corfu-history)
+    (corfu-history-mode 1)
+    (savehist-mode 1)
+    (add-to-list 'savehist-additional-variables 'corfu-history))
 
-  Unless the number is potentially part of the candidate.
-  In that case, insert the number."
-      (interactive)
-      (let* ((k (this-command-keys))
-             (re (concat "^" company-prefix k)))
-        (if (cl-find-if (lambda (s) (string-match re s))
-                        company-candidates)
-            (self-insert-command 1)
-          (company-complete-number (string-to-number k))))))
+  ;; Kind-icon - Icons in completion candidates
+  (use-package kind-icon
+    :after corfu
+    :config
+    (setq kind-icon-default-face 'corfu-default
+          kind-icon-blend-background t
+          kind-icon-blend-frac 0.08)
+    (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
+  ;; Cape - Completion At Point Extensions
+  (use-package cape
+    :defer t
+    :init
+    ;; Add useful completion backends
+    (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+    (add-to-list 'completion-at-point-functions #'cape-file)
+    (add-to-list 'completion-at-point-functions #'cape-keyword)
+    :config
+    (setq cape-dabbrev-min-length 3
+          cape-dabbrev-check-other-buffers t
+          cape-file-directory-must-exist t))
 #+END_SRC
 ** Jumping (Avy, Ace-Window and Friends)
 *** Jump to Characters and Words
 #+BEGIN_SRC emacs-lisp
   (use-package avy
+    :defer t
     :bind ("M-SPC" . avy-goto-char)
+    :commands (avy-goto-char avy-goto-line avy-goto-word-or-subword-1)
     :config
     (setq avy-background t
           avy-keys '(?a ?o ?e ?u ?i ?d ?h ?t ?n ?s)))
@@ -1547,8 +1624,10 @@ Configurations via [[https://oremacs.com/2017/12/27/company-numbers/][Using digi
 *** Jump to Windows
 #+BEGIN_SRC emacs-lisp
   (use-package ace-window
+    :defer t
     :bind (("C-x o" . ace-window)
            ("M-2" . ace-window))
+    :commands (ace-window)
     :init
     (setq aw-background nil
           aw-keys '(?a ?o ?e ?u ?i ?d ?h ?t ?n ?s)))
@@ -1560,68 +1639,41 @@ Configurations via [[https://oremacs.com/2017/12/27/company-numbers/][Using digi
     "Kill up to, but not including ARGth occurrence of CHAR.")
   (bind-key "M-Z" 'zap-up-to-char)
 #+END_SRC
-**** Jump to Zap
-#+BEGIN_SRC emacs-lisp
-  (use-package avy-zap)
 #+END_SRC
-*** Jump to Links
-#+BEGIN_SRC emacs-lisp
-  (use-package ace-link
-    :defer 1
-    :config
-    (ace-link-setup-default))
-#+END_SRC
-*** Jumping Keymap
 #+BEGIN_SRC emacs-lisp
   (bind-keys :prefix-map avy-map
              :prefix "C-c j"
              ("c" . avy-goto-char)
              ("l" . avy-goto-line)
              ("w" . avy-goto-word-or-subword-1)
-             ("W" . ace-window)
-             ("z" . avy-zap-to-char)
-             ("Z" . avy-zap-up-to-char))
+             ("W" . ace-window))
 #+END_SRC
 ** Selection (Expand Region)
 Configured like Magnars in Emacs Rocks, [[http://emacsrocks.com/e09.html][Episode 09]].
 
 #+BEGIN_SRC emacs-lisp
   (use-package expand-region
+    :defer t
     :bind (("C-@" . er/expand-region)
            ("C-=" . er/expand-region)
-           ("M-3" . er/expand-region)))
+           ("M-3" . er/expand-region))
+    :commands (er/expand-region))
 
   (pending-delete-mode t)
 #+END_SRC
 ** Deletion
 *** Kill Ring
-Modern kill ring management with better integration.
-
 #+BEGIN_SRC emacs-lisp
-  ;; Modern kill ring with consult (if using Vertico stack)
-  ;; (use-package consult
-  ;;   :bind ("C-x C-y" . consult-yank-pop))
-
-  ;; Alternative: Use built-in yank-pop with better interface
   (setq yank-pop-change-selection t
         save-interprogram-paste-before-kill t)
 
-  ;; Modern kill ring with consult (Vertico stack)
-  ;; consult-yank-pop is already configured in Consult section
-  ;; Binding: M-y for consult-yank-pop
-  
-  ;; Additional convenient binding
+  ;; consult-yank-pop is configured in Consult section (M-y binding)
   (bind-key "C-x C-y" 'consult-yank-pop)
-  
 #+END_SRC
 *** Smart Deletion
-Modern deletion with enhanced built-in features and optional packages.
 
 #+BEGIN_SRC emacs-lisp
-  ;; Enhanced built-in deletion with smart hungry delete
   (setq backward-delete-char-untabify-method 'hungry)
-  
-  ;; Smart hungry delete functions (no external dependencies)
   (defun smart-hungry-delete-backward ()
     "Delete backward intelligently - whitespace hungrily, otherwise one char."
     (interactive)
@@ -1630,7 +1682,7 @@ Modern deletion with enhanced built-in features and optional packages.
           (skip-chars-backward " \t\n")
           (delete-region (point) start))
       (backward-delete-char-untabify 1)))
-  
+
   (defun smart-hungry-delete-forward ()
     "Delete forward intelligently - whitespace hungrily, otherwise one char."
     (interactive)
@@ -1640,7 +1692,7 @@ Modern deletion with enhanced built-in features and optional packages.
           (delete-region start (point)))
       (delete-char 1)))
 
-  ;; Enable smart deletion globally
+
   (global-set-key [remap backward-delete-char-untabify] 'smart-hungry-delete-backward)
   (global-set-key [remap delete-backward-char] 'smart-hungry-delete-backward)
   (global-set-key [remap delete-char] 'smart-hungry-delete-forward)
@@ -1664,7 +1716,7 @@ Modern deletion with enhanced built-in features and optional packages.
       (global-set-key (kbd "<deletechar>") 'smart-hungry-delete-forward)
       (setq smart-deletion-enabled t)
       (message "Smart deletion enabled")))
-  
+
   (bind-key "C-c h" 'toggle-smart-deletion)
 #+END_SRC
 ** Files
@@ -1690,13 +1742,16 @@ This snippet automatically saves buffers in an intelligent way. It was originall
         (when basic
           (save-buffer)))))
 
+  ;; Modern advice macro using advice-add (Emacs 24.4+)
   (defmacro advise-commands (advice-name commands class &rest body)
-    "Apply advice named ADVICE-NAME to multiple COMMANDS.
+    "Apply advice named ADVICE-NAME to multiple COMMANDS using modern advice-add.
   The body of the advice is in BODY."
     `(progn
        ,@(mapcar (lambda (command)
-                   `(defadvice ,command (,class ,(intern (concat (symbol-name command) "-" advice-name)) activate)
-                      ,@body))
+                   `(advice-add ',command
+                                ,(intern (concat ":" (symbol-name class)))
+                                (lambda (&rest args)
+                                  ,@body)))
                  commands)))
 
   (advise-commands "auto-save"
@@ -1743,36 +1798,11 @@ Regexes are great. Not everyone knows them, and most user interfaces don't expos
     :config
     (setq reb-re-syntax 'string))
 #+END_SRC
-*** Replace Strings with Regexes
-Modern regex replacement with better visual feedback.
-
-#+BEGIN_SRC emacs-lisp
-  ;; Modern alternative: anzu for better visual feedback
-  (use-package anzu
-    :bind (("M-%" . anzu-query-replace)
-           ("C-M-%" . anzu-query-replace-regexp))
-    :init (global-anzu-mode +1)
-    :config
-    (setq anzu-mode-lighter ""
-          anzu-deactivate-region t
-          anzu-search-threshold 1000
-          anzu-replace-threshold 50))
-
-  ;; Alternative: Use consult-line with embark for modern search/replace
-  ;; (use-package consult
-  ;;   :bind ("C-s" . consult-line))
-
-  ;; Legacy visual-regexp (consider removing)
-  ;; (use-package visual-regexp
-  ;;   :bind (("M-5" . vr/replace)
-  ;;          ("C-M-5" . vr/query-replace)))
 #+END_SRC
 ** Multiple Occurrences
-*** Moving Between Multiple Occurrences (Modern)
-Using built-in and modern packages for symbol navigation and highlighting.
+*** Moving Between Multiple Occurrences
 
 #+BEGIN_SRC emacs-lisp
-  ;; Modern alternative: symbol-overlay
   (use-package symbol-overlay
     :bind (("M-i" . symbol-overlay-put)
            ("M-p" . symbol-overlay-switch-backward)
@@ -1785,56 +1815,23 @@ Using built-in and modern packages for symbol navigation and highlighting.
     :config
     (setq symbol-overlay-idle-time 0.1))
 
-  ;; Built-in alternatives for Emacs 30
   (when (>= emacs-major-version 30)
-    ;; Use built-in occur and multi-occur
     (bind-keys ("M-s o" . occur)
                ("M-s M-o" . multi-occur))
-    
-    ;; Enhanced isearch with symbol support
     (setq isearch-regexp-lax-whitespace t
           search-whitespace-regexp ".*?"))
 
-  ;; Legacy highlight-symbol functions (consider removing the package)
-  (defun highlight-symbol-first ()
-    "Jump to the first location of symbol at point."
-    (interactive)
-    (push-mark)
-    (let ((symbol (thing-at-point 'symbol)))
-      (when symbol
-        (goto-char (point-min))
-        (search-forward-regexp
-         (rx symbol-start (literal symbol) symbol-end) nil t)
-        (beginning-of-thing 'symbol))))
-
-  (defun highlight-symbol-last ()
-    "Jump to the last location of symbol at point."
-    (interactive)
-    (push-mark)
-    (let ((symbol (thing-at-point 'symbol)))
-      (when symbol
-        (goto-char (point-max))
-        (search-backward-regexp
-         (rx symbol-start (literal symbol) symbol-end) nil t))))
-
-  (bind-keys ("M-P" . highlight-symbol-first)
-             ("M-N" . highlight-symbol-last))
 #+END_SRC
-*** Editing Multiple Occurences (Iedit)
-Iedit is probably the best tool I've found for editing multiple occurences of the same symbol or string.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package iedit
-    :bind ("C-;" . iedit-mode))
 #+END_SRC
 
 ** Discoverability
-*** which-key (Enhanced Configuration)
+*** which-key
 #+BEGIN_SRC emacs-lisp
   (use-package which-key
-    :defer 0.2
+    :defer 0.3  ; Defer 0.3 seconds for faster startup
+    :init
+    (add-hook 'after-init-hook #'which-key-mode)
     :config
-    (which-key-mode)
     (setq which-key-idle-delay 0.5
           which-key-idle-secondary-delay 0.05
           which-key-sort-order 'which-key-key-order-alpha
@@ -1868,18 +1865,16 @@ Iedit is probably the best tool I've found for editing multiple occurences of th
 
 #+END_SRC
 ** Actionable URL's
-Actionable URLs in Emacs buffers via [[http://xenodium.com/#actionable-urls-in-emacs-buffers][Álvaro Ramírez]].
 
 #+BEGIN_SRC emacs-lisp
   (use-package goto-addr
+    :defer t
     :hook ((compilation-mode . goto-address-mode)
            (prog-mode . goto-address-prog-mode)
            (eshell-mode . goto-address-mode)
            (shell-mode . goto-address-mode))
     :bind (:map goto-address-highlight-keymap
-                ("C-c C-o" . goto-address-at-point))
-    :commands (goto-address-prog-mode
-               goto-address-mode))
+                ("C-c C-o" . goto-address-at-point)))
 #+END_SRC
 
 * Browsing
@@ -1896,17 +1891,11 @@ Here are language-specific (largely Lisps) or development-related packages.
 ** Programming Languages
 
 *** Tree-sitter Support (Emacs 29+)
-Modern syntax highlighting and parsing with tree-sitter.
-
-**Note**: Tree-sitter requires a C++ compiler to build language grammars. On macOS, install Xcode Command Line Tools:
-```bash
-xcode-select --install
-```
+**Note**: Requires C++ compiler. On macOS: =xcode-select --install=
 
 #+BEGIN_SRC emacs-lisp
-  ;; Enable tree-sitter for better syntax highlighting (Emacs 29+)
   (when (and (fboundp 'treesit-available-p) (treesit-available-p))
-    ;; Auto-install language grammars
+
     (setq treesit-language-source-alist
           '((bash "https://github.com/tree-sitter/tree-sitter-bash")
             (css "https://github.com/tree-sitter/tree-sitter-css")
@@ -1924,8 +1913,8 @@ xcode-select --install
             (rust "https://github.com/tree-sitter/tree-sitter-rust")
             (go "https://github.com/tree-sitter/tree-sitter-go")
             (java "https://github.com/tree-sitter/tree-sitter-java")))
-    
-    ;; Use tree-sitter modes when available
+
+
     (setq major-mode-remap-alist
           '((yaml-mode . yaml-ts-mode)
             (bash-mode . bash-ts-mode)
@@ -1939,8 +1928,8 @@ xcode-select --install
             (rust-mode . rust-ts-mode)
             (go-mode . go-ts-mode)
             (java-mode . java-ts-mode)))
-    
-    ;; Auto-install missing grammars (with error handling)
+
+
     (defun install-treesit-grammars ()
       "Install missing tree-sitter grammars with error handling."
       (interactive)
@@ -1958,11 +1947,8 @@ xcode-select --install
         (when failed-langs
           (message "Failed to install grammars for: %s. You may need to install a C++ compiler or development tools."
                    (mapconcat #'symbol-name failed-langs ", ")))))
-    
-    ;; Install grammars manually when needed (don't auto-install to avoid startup errors)
-    ;; Run M-x install-treesit-grammars to install manually
-    
-    ;; Only install basic grammars that usually work
+
+
     (defun install-basic-treesit-grammars ()
       "Install only basic tree-sitter grammars that typically work."
       (interactive)
@@ -1979,9 +1965,9 @@ xcode-select --install
 #+BEGIN_SRC emacs-lisp
   (use-package yaml-mode
     :mode ("\\.\\(yaml\\|yml\\)\\'")
-    :config 
+    :config
     (add-hook 'yaml-mode-hook
-              (lambda () 
+              (lambda ()
                 (define-key yaml-mode-map "\C-m" 'newline-and-indent))))
 #+END_SRC
 ** Development Tools
@@ -1990,6 +1976,7 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
 **** Magit
 #+BEGIN_SRC emacs-lisp
   (use-package magit
+    :defer t
     :bind (("C-x g" . magit-status)
            ("C-c g" . magit-status)
            :map magit-status-mode-map
@@ -2001,30 +1988,23 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
     (add-hook 'after-save-hook 'magit-after-save-refresh-status)
     (setq magit-use-overlays nil
           magit-section-visibility-indicator nil
-          magit-completing-read-function 'completing-read  ; Use Vertico
+          magit-completing-read-function 'completing-read
           magit-push-always-verify nil
           magit-repository-directories '("~/src/"))
     (use-package git-timemachine
       :defer t
       :bind (("C-x v t" . git-timemachine)))
-    
+
     (use-package git-link
       :defer t
       :bind (("C-x v L" . git-link))
       :config
       (setq git-link-open-in-browser t))
-    
-    (use-package pcmpl-git
-      :defer t)
-    
-    ;; Modern git features for Emacs 30
+
     (when (>= emacs-major-version 30)
-      ;; Better diff display
       (setq magit-diff-refine-hunk 'all
-            magit-diff-paint-whitespace t)
-      
-      ;; Enhanced commit interface
-      (setq git-commit-summary-max-length 72
+            magit-diff-paint-whitespace t
+            git-commit-summary-max-length 72
             git-commit-fill-column 72))
     (defun visit-pull-request-url ()
       "Visit the current branch's PR on Github."
@@ -2047,25 +2027,11 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
                             'magit-insert-unpushed-to-upstream-or-recent
                             'replace))
 #+END_SRC
-**** Git Auto Commit Mode
-#+BEGIN_SRC emacs-lisp
-  (use-package git-auto-commit-mode
-    :delight)
 #+END_SRC
 *** Project Management (Modern project.el)
 
-Using built-in project.el (Emacs 28+) for better performance and integration.
-
-**Benefits over Projectile**:
-- Built-in (no external dependencies)
-- Faster (0.3s startup improvement)
-- Better Emacs 30 integration
-- Smaller memory footprint (3MB saved)
-
 #+BEGIN_SRC emacs-lisp
-  ;; Modern project management with built-in project.el (Emacs 28+)
   (when (>= emacs-major-version 28)
-    ;; Enhanced project.el configuration
     (setq project-switch-commands
           '((project-find-file "Find file" ?f)
             (project-find-regexp "Find regexp" ?g)
@@ -2074,11 +2040,11 @@ Using built-in project.el (Emacs 28+) for better performance and integration.
             (project-eshell "Eshell" ?e)
             (magit-project-status "Magit" ?m)
             (project-compile "Compile" ?c)))
-    
-    ;; Better project discovery
+
+
     (setq project-vc-extra-root-markers '(".project" ".projectile" ".git"))
-    
-    ;; Keybindings (compatible with projectile muscle memory)
+
+
     (bind-keys :prefix-map project-prefix-map
                :prefix "C-c p"
                ("p" . project-switch-project)
@@ -2090,8 +2056,8 @@ Using built-in project.el (Emacs 28+) for better performance and integration.
                ("k" . project-kill-buffers)
                ("b" . project-switch-to-buffer)
                ("s" . consult-ripgrep))  ; Use consult for better search
-    
-    ;; Also bind to C-x p (standard Emacs 28+ prefix)
+
+
     (bind-keys :prefix-map project-standard-map
                :prefix "C-x p"
                ("p" . project-switch-project)
@@ -2102,24 +2068,24 @@ Using built-in project.el (Emacs 28+) for better performance and integration.
                ("c" . project-compile)
                ("k" . project-kill-buffers)
                ("b" . project-switch-to-buffer))
-    
-    ;; Enhanced ibuffer with project grouping
+
+
     (bind-key "C-x C-b" 'ibuffer)
-    
-    ;; Configure ibuffer after it's loaded
+
+
     (with-eval-after-load 'ibuffer
       (bind-keys :map ibuffer-mode-map
                  ("c" . clean-buffer-list)
                  ("n" . ibuffer-forward-filter-group)
                  ("p" . ibuffer-backward-filter-group)))
-    
+
     (add-hook 'ibuffer-hook
               (lambda ()
                 (ibuffer-project-set-filter-groups)
                 (unless (eq ibuffer-sorting-mode 'alphabetic)
                   (ibuffer-do-sort-by-alphabetic))))
-    
-    ;; Helper function for ibuffer project grouping
+
+
     (defun ibuffer-project-set-filter-groups ()
       "Set ibuffer filter groups by project."
       (when (fboundp 'project-current)
@@ -2135,69 +2101,67 @@ Using built-in project.el (Emacs 28+) for better performance and integration.
                          (list (file-name-nondirectory (directory-file-name proj))
                                `(filename . ,proj)))
                        projects))))))
-  
+
 #+END_SRC
-*** Style Checking (Modern Flymake + Flycheck)
-Using built-in Flymake for better performance, with Flycheck as fallback.
+*** Style Checking (Modern Flymake)
+
 
 #+BEGIN_SRC emacs-lisp
-  ;; Modern: Use built-in Flymake (Emacs 26+)
   (when (>= emacs-major-version 26)
-    ;; Suppress flymake warnings in scratch buffers
     (setq flymake-suppress-zero-counters t
           flymake-start-on-flymake-mode t)
-    ;; Better Flymake UI settings
+
     (setq flymake-fringe-indicator-position 'right-fringe
           flymake-suppress-zero-counters t
           flymake-start-on-flymake-mode t
           flymake-no-changes-timeout nil
           flymake-start-on-save-buffer t
           flymake-proc-compilation-prevents-syntax-check t)
-    
-    ;; Enable flymake for programming and text modes
+
+
     (add-hook 'prog-mode-hook 'flymake-mode)
     (add-hook 'text-mode-hook 'flymake-mode)
-    
-    ;; Disable flymake in certain buffers to avoid warnings
+
+
     (setq flymake-allowed-file-name-masks
           '(("\\.el\\'" flymake-elisp-flymake-byte-compile)
             ("\\.py\\'" flymake-proc-python-init)
             ("\\.xml\\'" flymake-xml-init)))
-    
-    ;; Only enable flymake for file-backed buffers
+
+
     (defun enable-flymake-for-files ()
       "Enable flymake only for buffers visiting files."
       (when (and buffer-file-name
                  (not (string-match-p "\\*.*\\*" (buffer-name))))
         (flymake-mode 1)))
-    
-    ;; Replace the simple hooks with file-only hooks
+
+
     (remove-hook 'prog-mode-hook 'flymake-mode)
     (remove-hook 'text-mode-hook 'flymake-mode)
     (add-hook 'find-file-hook 'enable-flymake-for-files)
-    
-    ;; Flymake keybindings (set after flymake is loaded)
+
+
     (with-eval-after-load 'flymake
       (bind-keys :map flymake-mode-map
                  ("M-g n" . flymake-goto-next-error)
                  ("M-g p" . flymake-goto-prev-error)
                  ("M-g d" . flymake-show-diagnostics-buffer))
-      
-      ;; Configure elisp flymake to be less aggressive
+
+
       (setq elisp-flymake-byte-compile-load-path
             (append elisp-flymake-byte-compile-load-path load-path))
-      
-      ;; Disable elisp flymake in scratch buffers specifically
+
+
       (defun disable-elisp-flymake-in-scratch ()
         "Disable elisp flymake in scratch buffers."
         (when (string-match "\\*scratch\\*" (buffer-name))
           (setq-local flymake-diagnostic-functions
-                      (remove 'elisp-flymake-byte-compile 
+                      (remove 'elisp-flymake-byte-compile
                               flymake-diagnostic-functions))))
-      
+
       (add-hook 'emacs-lisp-mode-hook 'disable-elisp-flymake-in-scratch)))
 
-  ;; Enhanced Flymake with modern UI (optional package)
+
   (use-package flymake-diagnostic-at-point
     :defer t
     :after flymake
@@ -2208,7 +2172,7 @@ Using built-in Flymake for better performance, with Flycheck as fallback.
           flymake-diagnostic-at-point-display-diagnostic-function
           'flymake-diagnostic-at-point-display-minibuffer))
 
-  ;; Alternative: Built-in tooltip support (Emacs 28+)
+
   (when (>= emacs-major-version 28)
     (with-eval-after-load 'flymake
       (setq help-at-pt-timer-delay 0.5
@@ -2216,93 +2180,85 @@ Using built-in Flymake for better performance, with Flycheck as fallback.
       (help-at-pt-set-timer)))
 
 #+END_SRC
-*** REST Exploring (Restclient)
-See Magnars' tutorial on [[http://emacsrocks.com/e15.html][Emacs Rocks]].
-#+BEGIN_SRC emacs-lisp
-  (use-package restclient)
 #+END_SRC
 ** Developing in Emacs
 *** Whitespace
 #+BEGIN_SRC emacs-lisp
 (add-hook 'before-save-hook 'whitespace-cleanup)
 #+END_SRC
-*** Managing Parentheses (Smartparens)
+*** Managing Parentheses (Modern Built-in + Puni)
 #+BEGIN_SRC emacs-lisp
-  (use-package smartparens
-    :bind
-    (("C-M-f" . sp-forward-sexp)
-     ("C-M-b" . sp-backward-sexp)
-     ("C-M-d" . sp-down-sexp)
-     ("C-M-a" . sp-backward-down-sexp)
-     ("C-S-a" . sp-beginning-of-sexp)
-     ("C-S-d" . sp-end-of-sexp)
-     ("C-M-e" . sp-up-sexp)
-     ("C-M-u" . sp-backward-up-sexp)
-     ("C-M-t" . sp-transpose-sexp)
-     ("C-M-n" . sp-next-sexp)
-     ("C-M-p" . sp-previous-sexp)
-     ("C-M-k" . sp-kill-sexp)
-     ("C-M-w" . sp-copy-sexp)
-     ("M-<delete>" . sp-unwrap-sexp)
-     ("M-S-<backspace>" . sp-backward-unwrap-sexp)
-     ("C-<right>" . sp-forward-slurp-sexp)
-     ("C-<left>" . sp-forward-barf-sexp)
-     ("C-M-<left>" . sp-backward-slurp-sexp)
-     ("C-M-<right>" . sp-backward-barf-sexp)
-     ("M-D" . sp-splice-sexp)
-     ("C-M-<delete>" . sp-splice-sexp-killing-forward)
-     ("C-M-<backspace>" . sp-splice-sexp-killing-backward)
-     ("C-M-S-<backspace>" . sp-splice-sexp-killing-around)
-     ("C-]" . sp-select-next-thing-exchange)
-     ("C-<left_bracket>" . sp-select-previous-thing)
-     ("C-M-]" . sp-select-next-thing)
-     ("M-F" . sp-forward-symbol)
-     ("M-B" . sp-backward-symbol)
-     ("H-t" . sp-prefix-tag-object)
-     ("H-p" . sp-prefix-pair-object)
-     ("H-s c" . sp-convolute-sexp)
-     ("H-s a" . sp-absorb-sexp)
-     ("H-s e" . sp-emit-sexp)
-     ("H-s p" . sp-add-to-previous-sexp)
-     ("H-s n" . sp-add-to-next-sexp)
-     ("H-s j" . sp-join-sexp)
-     ("H-s s" . sp-split-sexp)
-     ("M-9" . sp-backward-sexp)
-     ("M-0" . sp-forward-sexp))
-    :init
-    (smartparens-global-mode t)
-    (show-smartparens-global-mode t)
-    (use-package smartparens-config
-      :ensure f)
-    (bind-key "s" 'smartparens-mode toggle-map)
-    (when (is-mac-p)
-      (bind-keys ("<s-right>" . sp-forward-slurp-sexp)
-                 ("<s-left>" . sp-forward-barf-sexp)))
-    (sp-with-modes '(markdown-mode gfm-mode)
-      (sp-local-pair "*" "*"))
-    (sp-with-modes '(org-mode)
-      (sp-local-pair "=" "=")
-      (sp-local-pair "*" "*")
-      (sp-local-pair "/" "/")
-      (sp-local-pair "_" "_")
-      (sp-local-pair "+" "+")
-      (sp-local-pair "<" ">")
-      (sp-local-pair "[" "]"))
-    (use-package rainbow-delimiters
-      :hook (prog-mode . rainbow-delimiters-mode)))
+  ;; Enhanced electric-pair configuration
+  (setq electric-pair-preserve-balance t
+        electric-pair-delete-adjacent-pairs t
+        electric-pair-open-newline-between-pairs t
+        electric-pair-skip-whitespace nil)
+
+  ;; Mode-specific pair configuration
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (setq-local electric-pair-pairs
+                          (append electric-pair-pairs
+                                  '((?= . ?=)
+                                    (?* . ?*)
+                                    (?/ . ?/)
+                                    (?_ . ?_)
+                                    (?+ . ?+))))))
+
+  (add-hook 'markdown-mode-hook
+            (lambda ()
+              (setq-local electric-pair-pairs
+                          (append electric-pair-pairs
+                                  '((?* . ?*))))))
+
+  ;; Modern structural editing with puni
+  (use-package puni
+    :defer t
+    :bind (;; Navigation (matching smartparens keybindings where possible)
+           ("C-M-f" . puni-forward-sexp)
+           ("C-M-b" . puni-backward-sexp)
+           ("C-M-d" . puni-down-sexp)
+           ("C-M-u" . puni-up-sexp)
+           ("C-M-n" . puni-forward-sexp-or-up-list)
+           ("C-M-p" . puni-backward-sexp-or-up-list)
+           ("C-M-t" . puni-transpose)
+           ;; Editing
+           ("C-M-k" . puni-kill-sexp-forward)
+           ("C-M-w" . puni-copy-sexp-forward)
+           ("M-<delete>" . puni-splice)
+           ("M-S-<backspace>" . puni-splice-backward)
+           ;; Slurp/Barf (structural editing)
+           ("C-<right>" . puni-slurp-forward)
+           ("C-<left>" . puni-barf-forward)
+           ("C-M-<left>" . puni-slurp-backward)
+           ("C-M-<right>" . puni-barf-backward)
+           ;; Wrapping
+           ("M-(" . puni-wrap-round)
+           ("M-[" . puni-wrap-square)
+           ("M-{" . puni-wrap-curly)
+           ("M-<" . puni-wrap-angle))
+    :hook ((prog-mode . puni-mode)
+           (org-mode . puni-mode)
+           (markdown-mode . puni-mode)
+           (tex-mode . puni-mode))
+    :config
+    ;; Enable tree-sitter integration if available
+    (when (fboundp 'treesit-available-p)
+      (setq puni-prefer-tree-sitter t)))
+
 #+END_SRC
 *** Line Numbering (Modern Built-in)
-Using Emacs built-in display-line-numbers-mode (available since Emacs 26) instead of the deprecated linum packages.
 
 #+BEGIN_SRC emacs-lisp
-  ;; Modern line numbering (replaces linum-relative)
+
+
   (when (version<= "26.1" emacs-version)
     (global-display-line-numbers-mode 1)
-    
-    ;; Use relative line numbers in programming modes
+
+
     (setq display-line-numbers-type 'relative)
-    
-    ;; Disable line numbers in certain modes
+
+
     (dolist (mode '(org-mode-hook
                     term-mode-hook
                     shell-mode-hook
@@ -2311,7 +2267,7 @@ Using Emacs built-in display-line-numbers-mode (available since Emacs 26) instea
                     dired-mode-hook))
       (add-hook mode (lambda () (display-line-numbers-mode 0)))))
 
-  ;; Toggle between relative and absolute line numbers
+
   (defun toggle-line-numbers ()
     "Toggle between relative and absolute line numbers."
     (interactive)
@@ -2321,17 +2277,19 @@ Using Emacs built-in display-line-numbers-mode (available since Emacs 26) instea
     (display-line-numbers-mode 0)
     (display-line-numbers-mode 1))
 
-  (bind-key "l" 'toggle-line-numbers toggle-map)
+  ;; Keybinding moved to toggle-map (C-x t l) - see Key Bindings section
 #+END_SRC
-*** Commenting (comment-dwim-2)
-Additions via [[http://endlessparentheses.com/a-comment-or-uncomment-sexp-command.html][A comment-or-uncomment-sexp command in Emacs · Endless Parentheses]]. Would love a solution integrated into comment-dwim-2.
+*** Commenting (Built-in)
+Additions via [[http://endlessparentheses.com/a-comment-or-uncomment-sexp-command.html][A comment-or-uncomment-sexp command in Emacs · Endless Parentheses]].
+UPDATED for Emacs 30: Using built-in comment-dwim instead of comment-dwim-2.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package comment-dwim-2
-    :bind
-    (("M-;" . comment-dwim-2)
-     ("C-M-;" . comment-or-uncomment-sexp))
-    :init
+  ;; Use built-in comment-dwim (Emacs 30 optimization)
+  (bind-keys ("M-;" . comment-dwim)
+             ("C-M-;" . comment-or-uncomment-sexp))
+
+  ;; Enhanced commenting functions
+  (progn
     (defun uncomment-sexp (&optional n)
       "Uncomment a sexp around point."
       (interactive "P")
@@ -2419,11 +2377,13 @@ Additions via [[http://endlessparentheses.com/a-comment-or-uncomment-sexp-comman
           (comment-sexp--raw)))))
 #+END_SRC
 *** Indenting - Using Built-in ✓
+
+
 #+BEGIN_SRC emacs-lisp
-  ;; aggressive-indent removed - using built-in electric-indent-mode
-  ;; electric-indent-mode is already enabled by default in Emacs
-  ;; It provides automatic indentation without being overly aggressive
-  ;; Use C-M-\ to manually indent a region when needed
+  ;; electric-indent-mode is enabled by default in Emacs 24.4+
+  ;; This ensures it's enabled even if somehow disabled
+  (unless electric-indent-mode
+    (electric-indent-mode 1))
 #+END_SRC
 * Words and Numbers
 "GNU Office Suite Pro Edition," coming to a cubicle near you!
@@ -2447,15 +2407,6 @@ If I hated everything about Emacs, I would still use it for org-mode.
 -- [[http://article.gmane.org/gmane.emacs.orgmode/6224][Carsten Dominik]]
 #+end_quote
 *** Configuration
-Comprehensive org-mode setup for productivity, writing, and project management. This configuration includes:
-
-- Custom TODO keywords and states
-- Capture templates for quick note-taking
-- Agenda views and scheduling
-- Export settings for various formats
-- Visual enhancements for better readability
-
-The theming is derived from [[https://lepisma.github.io/2017/10/28/ricing-org-mode/][Ricing up Org Mode]] for a clean, readable appearance.
 
 #+BEGIN_SRC emacs-lisp
     (use-package org
@@ -2466,18 +2417,8 @@ The theming is derived from [[https://lepisma.github.io/2017/10/28/ricing-org-mo
              ("C-c a" . org-agenda)
              ("C-c b" . org-iswitchb)
              ("C-c M-k" . org-cut-subtree)
-             ;("<down>" . org-insert-todo-heading)
              :map org-mode-map
              ("C-c >" . org-time-stamp-inactive))
-      ;;:custom-face
-      ;;(variable-pitch ((t (:family "ETBembo"))))
-      ;;(org-document-title ((t (:foreground "#171717" :weight bold :height 1.5))))
-      ;;(org-done ((t (:background "#E8E8E8" :foreground "#0E0E0E" :strike-through t :weight bold))))
-      ;;(org-headline-done ((t (:foreground "#171717" :strike-through t))))
-      ;;(org-level-1 ((t (:foreground "#090909" :weight bold :height 1.3))))
-      ;;(org-level-2 ((t (:foreground "#090909" :weight normal :height 1.2))))
-      ;;(org-level-3 ((t (:foreground "#090909" :weight normal :height 1.1))))
-      ;;(org-image-actual-width '(600))
       :init
       (setq default-major-mode 'org-mode
             org-directory "~/org"
@@ -2560,36 +2501,29 @@ The theming is derived from [[https://lepisma.github.io/2017/10/28/ricing-org-mo
                           'org-block-begin-line
                           'org-block-end-line
                           'org-meta-line
-                          'org-document-info-keyword))))
-
-  ;;    (custom-theme-set-faces
-  ;;     'spacemacs-light
-  ;;     `(org-block-begin-line ((t (:background "#fbf8ef"))))
-  ;;     `(org-block-end-line ((t (:background "#fbf8ef")))))
-  )
+                          'org-document-info-keyword)))))
 #+END_SRC
 *** Packages
 **** org-modules
 #+BEGIN_SRC emacs-lisp
-  ;; Modern org modules configuration
   (setq org-modules '(org-habit org-tempo org-protocol))
   (org-load-modules-maybe t)
-  
-  ;; Enable modern org features
+
+
   (setq org-startup-with-latex-preview nil  ; Can be slow on large files
         org-image-actual-width '(400)       ; Reasonable default image width
         org-hide-emphasis-markers t         ; Clean appearance
         org-pretty-entities t               ; Pretty symbols
         org-startup-indented t              ; Visual indentation
         org-adapt-indentation nil)          ; Don't indent content
-  
-  ;; Emacs 30 specific org enhancements
+
+
   (when (>= emacs-major-version 30)
-    ;; Better org-mode performance
+
     (setq org-element-use-cache t
           org-element-cache-persistent t)
-    
-    ;; Enhanced org-babel
+
+
     (setq org-babel-default-header-args
           '((:session . "none")
             (:results . "replace")
@@ -2598,8 +2532,8 @@ The theming is derived from [[https://lepisma.github.io/2017/10/28/ricing-org-mo
             (:noweb . "no")
             (:hlines . "no")
             (:tangle . "no")))
-    
-    ;; Better org-agenda performance
+
+
     (setq org-agenda-use-time-grid t
           org-agenda-time-grid
           '((daily today require-timed)
@@ -2607,7 +2541,6 @@ The theming is derived from [[https://lepisma.github.io/2017/10/28/ricing-org-mo
             " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")))
 #+END_SRC
 **** org-habits
-I use the [[http://orgmode.org/manual/Tracking-your-habits.html][org-habits]] module.
 
 #+BEGIN_SRC emacs-lisp
   (setq org-habit-graph-column 105)
@@ -2616,75 +2549,64 @@ I use the [[http://orgmode.org/manual/Tracking-your-habits.html][org-habits]] mo
     (interactive)
     (org-set-property "STYLE" "habit"))
 #+END_SRC
-**** org-gcal
-#+BEGIN_SRC emacs-lisp
-  ;(use-package org-gcal
-  ;  :bind (:map org-agenda-mode-map
-                ;; "r" is bound to org-agenda-redo
-        ;	("g" . org-gcal-fetch))
-   ; :init
-   ; (add-hook 'emacs-startup-hook #'org-gcal-fetch)
 
-;    (defun fetch-calendar ()
-;      (when (internet-up-p) (org-gcal-fetch))))
-#+END_SRC
 **** org-cliplink
-=org-cliplink= lets you insert a link from your clipboard with a title that is fetched from the page's metadata.
 
 #+BEGIN_SRC emacs-lisp
   (use-package org-cliplink
     :bind ("C-x p i" . org-cliplink))
 #+END_SRC
-**** org-superstar (Modern org-bullets replacement)
+
+**** org-modern (Modern Visuals)
 #+BEGIN_SRC emacs-lisp
-  ;; Modern replacement for org-bullets
-  (use-package org-superstar
-    :hook (org-mode . org-superstar-mode)
-    :config
-    (setq org-superstar-headline-bullets-list '("◉" "○" "●" "○" "●" "○" "●")
-          org-superstar-item-bullet-alist '((?+ . ?➤) (?- . ?➤) (?* . ?➤))
-          org-superstar-leading-bullet ?\s
-          org-superstar-leading-fallback ?\s
-          org-hide-leading-stars nil
-          org-superstar-todo-bullet-alist
-          '(("TODO" . ?☐)
-            ("NEXT" . ?⚡)
-            ("HOLD" . ?⏸)
-            ("WAITING" . ?⏳)
-            ("CANCELLED" . ?✘)
-            ("DONE" . ?✓))))
+;;  (use-package org-modern
+;;    :defer t
+;;    :hook ((org-mode . org-modern-mode)
+;;           (org-agenda-finalize . org-modern-agenda))
+;;    :config
+;;
+;;    (setq org-modern-star '("◉" "○" "✸" "✿" "✤" "✜" "◆" "▶")
+;;
+;;          ;; Table styling
+;;          org-modern-table-vertical 1
+;;          org-modern-table-horizontal 0.2
+;;
+;;          ;; List bullets (migrated from org-superstar)
+;;          ;; 43 = '+', 45 = '-', 42 = '*'
+;;          org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
+;;
+;;          ;; Block styling
+;;          org-modern-block-fringe nil
+;;          org-modern-block-name '((t . t) (t . t))
+;;          org-modern-keyword nil
+;;
+;;          ;; Checkbox styling (migrated from org-superstar)
+;;          ;; 88 = 'X' (checked), 45 = '-' (partial), 32 = ' ' (unchecked)
+;;          org-modern-checkbox '((88 . "☑") (45 . "□") (32 . "☐"))
+;;
+;;          ;; Horizontal rules
+;;          org-modern-horizontal-rule "─"
+;;
+;;          ;; Priority styling
+;;          org-modern-priority t
+;;
+;;          ;; TODO keyword faces (enhanced from org-superstar)
+;;          ;; org-superstar used emoji bullets, org-modern adds colors
+;;          org-modern-todo-faces
+;;          '(("TODO" :background "#E06C75" :foreground "#282C34" :weight bold)
+;;            ("NEXT" :background "#98C379" :foreground "#282C34" :weight bold)
+;;            ("DONE" :background "#56B6C2" :foreground "#282C34" :weight bold)
+;;            ("WAITING" :background "#E5C07B" :foreground "#282C34" :weight bold)
+;;            ("HOLD" :background "#C678DD" :foreground "#282C34" :weight bold)
+;;            ("CANCELLED" :background "#5C6370" :foreground "#282C34" :weight bold))
+;;            )
+;;
+;;
+;;    (setq org-hide-leading-stars nil))
 #+END_SRC
 
-**** org-modern (Enhanced modern visuals)
+**** org-appear
 #+BEGIN_SRC emacs-lisp
-  ;; Modern, beautiful org-mode styling
-  (use-package org-modern
-    :defer t
-    :hook ((org-mode . org-modern-mode)
-           (org-agenda-finalize . org-modern-agenda))
-    :config
-    (setq org-modern-star '("◉" "○" "✸" "✿" "✤" "✜" "◆" "▶")
-          org-modern-table-vertical 1
-          org-modern-table-horizontal 0.2
-          org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
-          org-modern-block-fringe nil
-          org-modern-block-name '((t . t) (t . t))
-          org-modern-keyword nil
-          org-modern-checkbox '((88 . "☑") (45 . "□") (32 . "☐"))
-          org-modern-horizontal-rule "─"
-          org-modern-priority t
-          org-modern-todo-faces
-          '(("TODO" :background "#E06C75" :foreground "#282C34" :weight bold)
-            ("NEXT" :background "#98C379" :foreground "#282C34" :weight bold)
-            ("DONE" :background "#56B6C2" :foreground "#282C34" :weight bold)
-            ("WAITING" :background "#E5C07B" :foreground "#282C34" :weight bold)
-            ("HOLD" :background "#C678DD" :foreground "#282C34" :weight bold)
-            ("CANCELLED" :background "#5C6370" :foreground "#282C34" :weight bold))))
-#+END_SRC
-
-**** org-appear (Show markup when editing)
-#+BEGIN_SRC emacs-lisp
-  ;; Show hidden emphasis markers when cursor is on them
   (use-package org-appear
     :defer t
     :hook (org-mode . org-appear-mode)
@@ -2696,7 +2618,6 @@ I use the [[http://orgmode.org/manual/Tracking-your-habits.html][org-habits]] mo
           org-appear-inside-latex t))
 #+END_SRC
 **** org-autosort
-I wanted to be able to add a sort property to files or subtrees and get automatic autosorting. A user of /r/orgmode/ delivered [[https://www.reddit.com/r/orgmode/comments/7gqsif/is_it_possible_to_auto_sort_a_file_or_subtree_by/][a solution]].
 
 #+BEGIN_SRC emacs-lisp
   (defun yant/org-entry-has-subentries ()
@@ -2739,46 +2660,34 @@ I wanted to be able to add a sort property to files or subtrees and get automati
     :defer t
     :bind ("C-c o" . org-ql-search))
 
-  ;; Built-in alternative for simple org navigation
   (bind-keys :map org-mode-map
-             ("C-c o h" . consult-org-heading)  ; If using consult
-             ("C-c o i" . consult-imenu))       ; Works well with org-mode
-
-  ;; Legacy helm-org-rifle (consider removing)
-  ;; (use-package helm-org-rifle
-  ;;   :bind ("C-c o r" . helm-org-rifle))  ; Changed binding
+             ("C-c o h" . consult-org-heading)
+             ("C-c o i" . consult-imenu))
 #+END_SRC
 **** Modern Snippet System
 #+BEGIN_SRC emacs-lisp
-  ;; YASnippet - modern snippet system
+
   (use-package yasnippet
-    :defer 1
-    :config
+    :defer t
+    :init
     (yas-global-mode 1)
+    :config
     (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
-    ;; Don't expand snippets in comments or strings
+
     (setq yas-buffer-local-condition
           '(if (nth 8 (syntax-ppss)) '(require-snippet-condition . force-in-comment))))
 
-  ;; Snippet collection
+
   (use-package yasnippet-snippets
     :defer t
-    :after yasnippet)
-
-  ;; Yankpad for org-based snippets
-  (use-package yankpad
-    :defer t
-    :commands (yankpad-insert yankpad-expand)
+    :after yasnippet
     :init
-    (setq yankpad-file "~/org/templates/yankpad.org")
-    (bind-keys :prefix-map yank-map
-               :prefix "C-c y"
-               ("c" . yankpad-set-category)
-               ("e" . yankpad-edit)
-               ("i" . yankpad-insert)
-               ("m" . yankpad-map)
-               ("r" . yankpad-reload)
-               ("x" . yankpad-expand)))
+
+    (unless (package-installed-p 'yasnippet-snippets)
+      (condition-case err
+          (package-install 'yasnippet-snippets)
+        (error
+         (message "Failed to install yasnippet-snippets: %s" (error-message-string err))))))
 #+END_SRC
 **** org-mac-link
 #+BEGIN_SRC emacs-lisp
@@ -3064,7 +2973,9 @@ However, there are a *lot* of commands for clocking; this is a perfect instance 
 #+END_SRC
 **** Drag and Drop
 #+BEGIN_SRC emacs-lisp
-(use-package org-download)
+(use-package org-download
+  :defer t
+  :commands (org-download-clipboard org-download-yank org-download-screenshot))
 #+END_SRC
 **** Exporting
 I often want to export Org-Mode documents into other formats. This section contains some defaults and packages that have made that workflow easier for me.
@@ -3079,9 +2990,18 @@ Org's export defaults to inserting a TOC and using section numbers, but usually 
 To override, add to the #+OPTIONS: org header for a particular file:
 - To add in a table of contents: =toc:4= (to a particular depth) or =toc:t= (to all depths)
 - To show the section numbers, set =num:t=
+***** Using Ox-Hugo
+#+BEGIN_SRC emacs-lisp
+(use-package ox-hugo
+  :ensure t   ;Auto-install the package from Melpa
+  :pin melpa  ;`package-archives' should already have ("melpa" . "https://melpa.org/packages/")
+  :after ox)
+#+END_SRC
 ***** Use Bootstrap
 #+BEGIN_SRC emacs-lisp
-(use-package ox-twbs)
+(use-package ox-twbs
+  :defer t
+  :commands (org-twbs-export-as-html org-twbs-export-to-html))
 #+END_SRC
 ***** Preview Org Exported HTML
 I don't much like Markdown, but many Markdown programs (ando other text formats and editors) have a feature where you can preview your formatting. This package adds this functionality for org-mode, using eww, the plain text browser built into Emacs.
@@ -3100,7 +3020,7 @@ Once in the eww buffer, hit =&= (=eww-browse-with-external-browser=) to view the
   (use-package htmlize
     :defer t
     :after org)
-  
+
   (use-package ox-clip
     :defer t
     :after org
@@ -3151,7 +3071,7 @@ Exclude completed tasks from refile targets, from [[https://michael.englehorn.co
           ("k" org-cut-subtree)
           ("m" org-mark-subtree)
           ("s" org-sort)
-          ("x" smex-major-mode-commands)
+          ("x" execute-extended-command)  ; Was smex-major-mode-commands, now uses Vertico
           ("X" org-todo-done)
           ("R" org-done-and-archive)
           ("y" org-todo-yesterday)))
@@ -3306,22 +3226,21 @@ The first function comes from a [[https://stackoverflow.com/questions/9991597/ho
 #+END_SRC
 ** Markdown
 #+BEGIN_SRC emacs-lisp
-  (use-package markdown-mode)
+  (use-package markdown-mode
+    :defer t
+    :mode ("\\.md\\'" "\\.markdown\\'")
+    :commands (markdown-mode gfm-mode))
 #+END_SRC
 ** Calculator (Calc)
 #+BEGIN_SRC emacs-lisp
   (use-package calc
+    :defer t
+    :commands (calc calc-dispatch)
     :config
     (setq calc-display-trail ()))
 #+END_SRC
 ** Modern Editing Enhancements
 
-*** Numbers at Point
-#+BEGIN_SRC emacs-lisp
-(use-package shift-number
-  :defer t
-  :bind (("M-+" . shift-number-up)
-         ("M-_" . shift-number-down)))
 #+END_SRC
 
 *** Multiple Cursors (Modern)
@@ -3338,29 +3257,15 @@ The first function comes from a [[https://stackoverflow.com/questions/9991597/ho
     (setq mc/always-run-for-all t))
 #+END_SRC
 
-*** Smart Parentheses Enhancement
-#+BEGIN_SRC emacs-lisp
-  ;; Enhanced smartparens configuration
-  (with-eval-after-load 'smartparens
-    ;; Better navigation
-    (bind-keys :map smartparens-mode-map
-               ("C-M-f" . sp-forward-sexp)
-               ("C-M-b" . sp-backward-sexp)
-               ("C-M-u" . sp-backward-up-sexp)
-               ("C-M-d" . sp-down-sexp)
-               ("C-M-k" . sp-kill-sexp)
-               ("C-M-w" . sp-copy-sexp)
-               ("M-<delete>" . sp-unwrap-sexp)
-               ("M-<backspace>" . sp-backward-unwrap-sexp)))
 #+END_SRC
 ** Spell Checking (Flyspell)
 #+BEGIN_SRC emacs-lisp
   (use-package flyspell
+    :defer t
     :bind (("C-`" . ispell-word)
            ("C-~" . ispell-buffer))
-    :init
-    (dolist (hook '(text-mode-hook org-mode-hook))
-      (add-hook hook (lambda () (flyspell-mode 1))))
+    :hook ((text-mode . flyspell-mode)
+           (org-mode . flyspell-mode))
     :config
     (setq ispell-program-name "aspell"
           ispell-list-command "--list"))
@@ -3370,6 +3275,8 @@ Hit =C-c /= to run =pandoc-main-hydra/body=, the main entry point for =pandoc-mo
 
 #+BEGIN_SRC emacs-lisp
   (use-package pandoc-mode
+    :defer t
+    :commands (pandoc-mode)
     :init
     (add-hook 'pandoc-mode-hook 'pandoc-load-default-settings)
     :config
@@ -3381,28 +3288,17 @@ Hit =C-c /= to run =pandoc-main-hydra/body=, the main entry point for =pandoc-mo
   (use-package csv-mode
     :mode ("\\.csv$" . csv-mode))
 #+END_SRC
-** Epubs
-#+BEGIN_SRC emacs-lisp
-  (defun copy-whole-buffer ()
-    (interactive)
-    (copy-region-as-kill (point-min) (point-max)))
-
-  (use-package nov
-    :bind (:map nov-mode-map
-                ("c" . copy-whole-buffer))
-    :init
-    (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
 #+END_SRC
 ** Ledger-cli
 #+BEGIN_SRC emacs-lisp
-(use-package ledger-mode
+  (use-package ledger-mode
     :mode ("\\.dat\\'"
            "\\.ledger\\'")
-    :custom (ledger-clear-whole-transactions t))
-
-  (use-package flycheck-ledger
-  :config
-  (add-hook 'ledger-mode-hook 'flycheck-mode))
+    :custom (ledger-clear-whole-transactions t)
+    :config
+    ;; Ledger-mode has built-in Flymake support
+    ;; Flymake will be enabled automatically via the global find-file-hook
+    (message "Ledger-mode loaded with Flymake support"))
 #+END_SRC
 * Organization (GTD and PARA)
 ** Projects
@@ -3506,48 +3402,8 @@ This function creates an agenda of stuck projects that is restricted to my "Proj
 
     (f-touch "~/org/tmp/reviews.org")
 #+END_SRC
-** Random Note
-#+BEGIN_SRC emacs-lisp
-  (use-package org-randomnote
-    :bind (:map launcher-map
-                ("R" . org-randomnote))
-    :init
-    (setq org-randomnote-candidates '("~/org/gtd/gtd.org"))
-    (defun randomnote-osx ()
-      (interactive)
-      (when (is-mac-p) (shell-command "open -a randomnote.app")))
-    (bind-key "r" 'randomnote-osx 'launcher-map))
 #+END_SRC
-** Progressive Summarization
-Progressive Summarization is the key methodology used for capturing reference materials in a useful way. The idea is that you annotate and recreate your notes with optional layers, added as needed:
-
-- Layer 1: the raw note
-- Layer 2: bolding
-- Layer 3: highlighting
-- Layer 4 is re-summarization
-- Layer 5 is "remixing" the content
-
-Layers 1, 4, and 5 are easy or obvious enough as to how to do them in Org-Mode. Layer 2 might be less obvious for others, but I already use sp-local-pairs to implement an easy bolding process, which is bolded in Emacs and also when exported.
-
-Layer 3 is the tricky part. Ideally, I want to easily highlight a region so that it is *persistently* and *cleanly* highlighted in Emacs, and highlighted in HTML exports. You can highlight HTML with the ~mark~ tag. I've figured out part of this, but not everything.
-
-Org-mode can have [inline literal HTML tags](http://orgmode.org/manual/Quoting-HTML-tags.html#Quoting-HTML-tags), like this:
-
-~@@html:<b>@@bold text@@html:</b>@@~
-
-I can use this to highlight text on export with the ~<mark>~ tag:
-
-#+BEGIN_SRC emacs-lisp
-  (use-package wrap-region
-    :init
-    (wrap-region-global-mode)
-    :config
-    (wrap-region-add-wrapper "@@html:<mark>@@" "@@html:</mark>@@" "~" 'org-mode))
 #+END_SRC
-
-In the future, I'd like to:
-- Hide or clean this markup when displayed in Emacs, a la prettify symbols mode
-- Automatically highlight the wrapped region *in Emacs*
 * Functions
 ** Emacs Configuration File
 This function and the corresponding keybinding allows me to rapidly access my configuration. They are adapted from Bozhidar Batsov's [[http://emacsredux.com/blog/2013/05/18/instant-access-to-init-dot-el/][post on Emacs Redux]].
@@ -3713,14 +3569,14 @@ Modern keybindings that take advantage of Emacs 30 features.
                ("C-p" . minibuffer-previous-completion)
                ("<tab>" . minibuffer-complete)
                ("?" . minibuffer-completion-help))
-    
+
     ;; Tab-bar navigation
     (bind-keys ("C-x t t" . tab-bar-new-tab)
                ("C-x t k" . tab-bar-close-tab)
                ("C-x t n" . tab-bar-switch-to-next-tab)
                ("C-x t p" . tab-bar-switch-to-prev-tab)
                ("C-x t r" . tab-bar-rename-tab))
-    
+
     ;; Enhanced project keybindings (already defined above)
     ;; Package-vc keybindings
     (bind-keys :prefix-map package-vc-map

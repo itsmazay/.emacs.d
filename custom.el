@@ -4,26 +4,20 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(ansi-color-names-vector
-   ["#222222" "#aa4450" "#87875f" "#cc8800" "#87AFD7" "#8787AF" "#87ceeb" "#c2c2b0"])
+   ["#222222" "#aa4450" "#87875f" "#cc8800" "#87AFD7" "#8787AF" "#87ceeb"
+    "#c2c2b0"])
  '(canlock-password "251084809d0a47922bd12ceedb6052320a982020")
  '(custom-safe-themes
-   '("285efd6352377e0e3b68c71ab12c43d2b72072f64d436584f9159a58c4ff545a" "f9cae16fd084c64bf0a9de797ef9caedc9ff4d463dd0288c30a3f89ecf36ca7e" default))
+   '("285efd6352377e0e3b68c71ab12c43d2b72072f64d436584f9159a58c4ff545a"
+     "f9cae16fd084c64bf0a9de797ef9caedc9ff4d463dd0288c30a3f89ecf36ca7e"
+     default))
  '(fci-rule-color "#62686E")
  '(hl-todo-keyword-faces
-   '(("TODO" . "#dc752f")
-     ("NEXT" . "#dc752f")
-     ("THEM" . "#2d9574")
-     ("PROG" . "#3a81c3")
-     ("OKAY" . "#3a81c3")
-     ("DONT" . "#f2241f")
-     ("FAIL" . "#f2241f")
-     ("DONE" . "#42ae2c")
-     ("NOTE" . "#b1951d")
-     ("KLUDGE" . "#b1951d")
-     ("HACK" . "#b1951d")
-     ("TEMP" . "#b1951d")
-     ("FIXME" . "#dc752f")
-     ("XXX+" . "#dc752f")
+   '(("TODO" . "#dc752f") ("NEXT" . "#dc752f") ("THEM" . "#2d9574")
+     ("PROG" . "#3a81c3") ("OKAY" . "#3a81c3") ("DONT" . "#f2241f")
+     ("FAIL" . "#f2241f") ("DONE" . "#42ae2c") ("NOTE" . "#b1951d")
+     ("KLUDGE" . "#b1951d") ("HACK" . "#b1951d") ("TEMP" . "#b1951d")
+     ("FIXME" . "#dc752f") ("XXX+" . "#dc752f")
      ("\\?\\?\\?+" . "#dc752f")))
  '(jdee-db-active-breakpoint-face-colors (cons "#1d2127" "#87ceeb"))
  '(jdee-db-requested-breakpoint-face-colors (cons "#1d2127" "#87875f"))
@@ -32,31 +26,38 @@
  '(mml-secure-smime-sign-with-sender t)
  '(objed-cursor-color "#aa4450")
  '(package-selected-packages
-   '(ivy-posframe org-kanban pcmpl-git git-link git-timemachine aggressive-indent comment-dwim-2 linum-relative smartparens restclient flycheck-clojure ibuffer-projectile projectile git-auto-commit-mode elisp-slime-nav align-cljlet cider clojure-mode eww-lnum emojify beginend selected goto-chg interaction-log discover-my-major help-fns+ which-key edit-list iedit highlight-symbol visual-regexp hungry-delete easy-kill browse-kill-ring expand-region ace-link avy-zap ace-window avy smex flx-ido ido-vertical-mode ivy-rich counsel zoom deadgrep dired-collapse dired-quick-sort dired-subtree dired-filter dired+ f esh-autosuggest counsel-osx-app yaml-mode use-package spacemacs-theme solarized-theme smart-mode-line rainbow-delimiters py-autopep8 paradox osx-clipboard org-caldav magit-popup magit groovy-mode go-guru go-eldoc go-add-tags flycheck fill-column-indicator exec-path-from-shell elpy ein doom-themes cyberpunk-theme company-go better-defaults all-the-icons))
+   '(all-the-icons-completion all-the-icons-dired cape consult-dir
+			      consult-org-roam corfu csv-mode
+			      dired-collapse dired-filter
+			      dired-quick-sort dired-rainbow
+			      dired-subtree doom-modeline doom-themes
+			      embark-consult esh-autosuggest
+			      eshell-prompt-extras
+			      eshell-syntax-highlighting expand-region
+			      flymake-diagnostic-at-point kind-icon
+			      ledger-mode ligature marginalia
+			      markdown-mode multiple-cursors orderless
+			      org-appear org-cliplink org-download
+			      org-modern org-preview-html org-ql
+			      origami ox-clip ox-hugo ox-twbs
+			      pandoc-mode puni rainbow-delimiters
+			      symbol-overlay treemacs-icons-dired
+			      treemacs-magit vertico vundo wgrep
+			      yaml-mode yasnippet-snippets))
  '(pdf-view-midnight-colors (cons "#c2c2b0" "#222222"))
  '(rustic-ansi-faces
-   ["#222222" "#aa4450" "#87875f" "#cc8800" "#87AFD7" "#8787AF" "#87ceeb" "#c2c2b0"])
+   ["#222222" "#aa4450" "#87875f" "#cc8800" "#87AFD7" "#8787AF" "#87ceeb"
+    "#c2c2b0"])
  '(vc-annotate-background "#222222")
  '(vc-annotate-color-map
-   (list
-    (cons 20 "#87875f")
-    (cons 40 "#9e873f")
-    (cons 60 "#b5871f")
-    (cons 80 "#cc8800")
-    (cons 100 "#dd8d00")
-    (cons 120 "#ee9200")
-    (cons 140 "#ff9800")
-    (cons 160 "#d7923a")
-    (cons 180 "#af8c74")
-    (cons 200 "#8787AF")
-    (cons 220 "#92708f")
-    (cons 240 "#9e5a6f")
-    (cons 260 "#aa4450")
-    (cons 280 "#994d51")
-    (cons 300 "#895654")
-    (cons 320 "#785f55")
-    (cons 340 "#62686E")
-    (cons 360 "#62686E")))
+   (list (cons 20 "#87875f") (cons 40 "#9e873f") (cons 60 "#b5871f")
+	 (cons 80 "#cc8800") (cons 100 "#dd8d00") (cons 120 "#ee9200")
+	 (cons 140 "#ff9800") (cons 160 "#d7923a")
+	 (cons 180 "#af8c74") (cons 200 "#8787AF")
+	 (cons 220 "#92708f") (cons 240 "#9e5a6f")
+	 (cons 260 "#aa4450") (cons 280 "#994d51")
+	 (cons 300 "#895654") (cons 320 "#785f55")
+	 (cons 340 "#62686E") (cons 360 "#62686E")))
  '(vc-annotate-very-old-color nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
