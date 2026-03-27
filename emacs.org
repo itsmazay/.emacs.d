@@ -29,6 +29,8 @@ Aggressive optimizations to achieve fast startup times (target: < 2 seconds).
 
 First, let's measure startup time to track performance improvements:
 
+GC, file-handler, and render optimizations are now in =early-init.el= for maximum effect.
+
 #+BEGIN_SRC emacs-lisp
   ;; Measure startup time
   (defun display-startup-time ()
@@ -51,43 +53,13 @@ First, let's measure startup time to track performance improvements:
                 (profiler-report)
                 (profiler-stop))))
 
-  ;; Show package load times (requires use-package-compute-statistics)
-  (setq use-package-compute-statistics t)
-
+  ;; Enable use-package statistics only when debugging
+  ;; Run M-x use-package-report to view
   (defun show-package-load-times ()
-    "Show which packages took longest to load."
+    "Enable use-package statistics and show report."
     (interactive)
+    (setq use-package-compute-statistics t)
     (use-package-report))
-
-  ;; AGGRESSIVE GC optimization during startup (Emacs 30 tuned)
-  (setq gc-cons-threshold most-positive-fixnum
-        gc-cons-percentage 0.8)  ; Increased from 0.6
-
-  ;; Reduce startup time by minimizing file handler checks
-  (defvar file-name-handler-alist-original file-name-handler-alist)
-  (setq file-name-handler-alist nil)
-
-  ;; Reset GC after startup - DELAYED for better performance
-  (add-hook 'emacs-startup-hook
-            (lambda ()
-              ;; Wait 2 seconds after startup before resetting GC
-              ;; This prevents GC during package loading
-              (run-at-time 2 nil
-                           (lambda ()
-                             (setq gc-cons-threshold (* 64 1024 1024)  ; 64MB (was 16MB)
-                                   gc-cons-percentage 0.1)
-                             (message "GC settings optimized for runtime")))
-              (setq file-name-handler-alist file-name-handler-alist-original)
-              (makunbound 'file-name-handler-alist-original)))
-
-  ;; Reduce rendering during startup
-  (setq-default inhibit-redisplay t
-                inhibit-message t)
-  (add-hook 'window-setup-hook
-            (lambda ()
-              (setq-default inhibit-redisplay nil
-                            inhibit-message nil)
-              (redisplay)))
 #+END_SRC
 * Settings
 ** Personal information
@@ -232,25 +204,9 @@ Emacs 30 has significantly improved built-in completion.
 
     ;; Better minibuffer completion
     (setq enable-recursive-minibuffers t
-          minibuffer-depth-indicate-mode t)
+          minibuffer-depth-indicate-mode t))
 
-    ;; Improved completion styles
-    (setq completion-styles '(orderless basic)
-          completion-category-defaults nil
-          completion-category-overrides
-          '((file (styles partial-completion))))
-
-    ;; Use orderless for better fuzzy matching (optional)
-    (use-package orderless
-      :defer t
-      :init
-      ;; Set completion styles even if orderless isn't available
-      (setq completion-styles '(flex basic partial-completion)
-            completion-category-overrides '((file (styles basic partial-completion))))
-      :config
-      ;; Only set orderless styles if the package loaded successfully
-      (setq completion-styles '(orderless basic)
-            completion-category-overrides '((file (styles basic partial-completion))))))
+  ;; Completion styles are configured in the Orderless package section below
 #+END_SRC
 ** Enable Package Support
 *** Use-Package
@@ -259,8 +215,8 @@ Emacs 30 has significantly improved built-in completion.
   (require 'package)
   (setq package-archives
         '(("gnu" . "https://elpa.gnu.org/packages/")
-          ("melpa" . "https://melpa.org/packages/")
-          ("org" . "https://orgmode.org/elpa/")))
+          ("melpa" . "https://melpa.org/packages/")))
+  ;; Removed discontinued org ELPA archive (org is now in GNU ELPA)
   (setq load-prefer-newer t
         package-native-compile t)  ; Use native compilation if available
   (unless (package-installed-p 'use-package)
@@ -312,11 +268,8 @@ Helpful functions for maintaining packages.
 #+BEGIN_SRC emacs-lisp
   (use-package async
     :defer t
-    :init
-    ;; Enable async for dired operations
-    (autoload 'dired-async-mode "dired-async.el" nil t)
-    (dired-async-mode 1)
-
+    :hook (dired-mode . dired-async-mode)
+    :config
     ;; Enable async byte compilation for packages
     (async-bytecomp-package-mode 1)
 
@@ -363,7 +316,7 @@ These functions identify what operating system is hosting Emacs, which can be ha
 
 #+BEGIN_SRC emacs-lisp
   (use-package doom-themes
-    :defer 0.1  ; Defer 0.1 seconds for faster startup
+    :demand t  ; Load immediately to avoid unstyled flash
     :config
     ;; Global theme settings
     (setq doom-themes-enable-bold t
@@ -381,25 +334,27 @@ These functions identify what operating system is hosting Emacs, which can be ha
     ;; Enable enhanced features
     (doom-themes-visual-bell-config)   ; Flash mode-line on errors
     (doom-themes-org-config))          ; Better org-mode fontification
+#+END_SRC
 
-
+*** File Explorer (Treemacs)
+#+BEGIN_SRC emacs-lisp
   (use-package treemacs
     :defer t
     :bind (("<f9>" . treemacs)
-           ("C-x t 1" . treemacs-select-window)
-           ("C-x t t" . treemacs)
-           ("C-x t B" . treemacs-bookmark)
-           ("C-x t C-t" . treemacs-find-file)
-           ("C-x t M-t" . treemacs-find-tag))
+           ("C-c t 1" . treemacs-select-window)
+           ("C-c t t" . treemacs)
+           ("C-c t B" . treemacs-bookmark)
+           ("C-c t C-t" . treemacs-find-file)
+           ("C-c t M-t" . treemacs-find-tag))
     :config
     (setq treemacs-width 30
           treemacs-follow-mode t
           treemacs-filewatch-mode t
           treemacs-fringe-indicator-mode 'always))
 
-
-  (use-package treemacs-icons-dired
-    :hook (dired-mode . treemacs-icons-dired-enable-once))
+  (use-package treemacs-nerd-icons
+    :after treemacs
+    :config (treemacs-load-theme "nerd-icons"))
 
   (use-package treemacs-magit
     :after (treemacs magit))
@@ -524,35 +479,28 @@ These functions identify what operating system is hosting Emacs, which can be ha
 #+BEGIN_SRC emacs-lisp
   (global-prettify-symbols-mode +1)
 
-  ;; Modern icons for Emacs
-  (use-package all-the-icons
+  ;; Modern icons for Emacs (nerd-icons replaces all-the-icons)
+  ;; Run M-x nerd-icons-install-fonts on first install
+  (use-package nerd-icons
     :defer t
-    :if (display-graphic-p)
-    :config
-    ;; Run M-x all-the-icons-install-fonts on first install
-    (unless (find-font (font-spec :name "all-the-icons"))
-      (message "Run M-x all-the-icons-install-fonts to install icon fonts")))
+    :if (display-graphic-p))
 
   ;; Icons in dired
-  (use-package all-the-icons-dired
+  (use-package nerd-icons-dired
     :defer t
-    :hook (dired-mode . all-the-icons-dired-mode))
+    :hook (dired-mode . nerd-icons-dired-mode))
 
   ;; Icons in completion (minibuffer)
-  (use-package all-the-icons-completion
+  (use-package nerd-icons-completion
     :defer t
-    :after (marginalia all-the-icons)
-    :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
-    :init (all-the-icons-completion-mode))
+    :after marginalia
+    :hook (marginalia-mode . nerd-icons-completion-marginalia-setup)
+    :config (nerd-icons-completion-mode))
 
   ;; Rainbow delimiters for better parentheses visibility
   (use-package rainbow-delimiters
     :defer t
-    :hook ((prog-mode . rainbow-delimiters-mode)
-           (emacs-lisp-mode . rainbow-delimiters-mode)
-           (lisp-mode . rainbow-delimiters-mode)
-           (clojure-mode . rainbow-delimiters-mode)
-           (scheme-mode . rainbow-delimiters-mode)))
+    :hook (prog-mode . rainbow-delimiters-mode))  ; Covers all prog-mode derivatives
 #+END_SRC
 *** Cursor
 Adaptive cursor width shows width of character, e.g. TAB. Via [[http://pragmaticemacs.com/emacs/adaptive-cursor-width/][Pragmatic Emacs]].
@@ -563,21 +511,13 @@ Adaptive cursor width shows width of character, e.g. TAB. Via [[http://pragmatic
 Disable unnecessary GUI elements for a cleaner, more focused interface.
 
 #+BEGIN_SRC emacs-lisp
-  ;; Disable GUI elements (uncomment if desired)
-  ;; (when (fboundp 'menu-bar-mode) (menu-bar-mode -1))
-  ;; (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-  ;; (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-
-  ;; Keep menu bar on macOS for better integration
+  ;; GUI elements disabled in early-init.el for faster startup
+  ;; Re-enable menu bar on macOS for better integration
   (when (and (display-graphic-p) (eq system-type 'darwin))
     (menu-bar-mode 1))
 #+END_SRC
 **** Startup Messages
-#+BEGIN_SRC emacs-lisp
-  (setq inhibit-startup-message t
-        initial-scratch-message ""
-        inhibit-startup-echo-area-message t)
-#+END_SRC
+Startup messages are now suppressed in =early-init.el=.
 **** Mode Line (doom-modeline)
 
 #+BEGIN_SRC emacs-lisp
@@ -615,11 +555,6 @@ Disable unnecessary GUI elements for a cleaner, more focused interface.
         gnutls-verify-error t)
 #+END_SRC
 *** Encryption
-[[https://www.masteringemacs.org/article/keeping-secrets-in-emacs-gnupg-auth-sources][This will force Emacs to use its own internal password prompt instead of an external pin entry program.]]
-
-#+BEGIN_SRC emacs-lisp
-(setenv "GPG_AGENT_INFO" nil)
-#+END_SRC
 
 [[https://orgmode.org/worg/org-tutorials/encrypting-files.html][Encrypting specific entries in an org File with org-crypt]]
 
@@ -650,20 +585,10 @@ EMACS 30 UPDATE: GnuPG 2.4.1 issues fixed in Emacs 30. Legacy workarounds remove
 #+END_SRC
 
 ** Backups
-I find Emacs default behavior of saving files relative to the current directory annoying, as it puts backup files everywhere. Instead, this saves backups in one directory, a backup folder within my Emacs directory.
-
-#+BEGIN_SRC emacs-lisp
-  (setq backup-directory-alist
-        `(("." . ,(expand-file-name
-                   (concat user-emacs-directory "backups")))))
-#+END_SRC
+Backup and autosave directories are configured in the Automatic Saving section under Files.
 ** Prompts
 *** Yes or No
-Make yes or no prompts be y or n prompts.
-
-#+BEGIN_SRC emacs-lisp
-  (fset 'yes-or-no-p 'y-or-n-p)
-#+END_SRC
+Handled by =use-short-answers t= in Modern Emacs Features section (Emacs 28+).
 *** Buffer / File Warnings
 Remove the warning if a buffer or file does not exist, so you can create them. ([[https://iqbalansari.github.io/blog/2014/12/07/automatically-create-parent-directories-on-visiting-a-new-file-in-emacs/][Source]].)
 
@@ -749,8 +674,11 @@ UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 *** Encoding
 #+BEGIN_SRC emacs-lisp
   (prefer-coding-system 'utf-8)
-  (setq coding-system-for-read 'utf-8)
-  (setq coding-system-for-write 'utf-8)
+  (set-default-coding-systems 'utf-8)
+  (set-terminal-coding-system 'utf-8)
+  (set-keyboard-coding-system 'utf-8)
+  ;; Don't force coding-system-for-read/write — prefer-coding-system
+  ;; handles this without breaking binary file detection
 #+END_SRC
 *** Bell
 #+BEGIN_SRC emacs-lisp
@@ -773,7 +701,7 @@ Enable line indenting automatically. If needed, you can disable on a mode-by-mod
 Make C-n insert new lines if the point is at the end of the buffer.
 
 #+BEGIN_SRC emacs-lisp
-  (setq next-line-add-newlines t)
+  (setq next-line-add-newlines nil)  ; Don't add newlines when C-n at end of buffer
 #+END_SRC
 ** Movement
 These allow you to move lines and characters with an automatic prefix argument of 5, which accelerates movements. Via [[http://whattheemacsd.com/key-bindings.el-02.html][What the .emacs.d?]].
@@ -834,24 +762,8 @@ By default, sentence-end-double-space is set to t. That convention may be progra
 UPDATED for Emacs 30: Using modern advice-add instead of deprecated defadvice.
 
 #+BEGIN_SRC emacs-lisp
-  ;; Modern advice using advice-add (Emacs 24.4+)
-  (advice-add 'forward-sentence :around
-              (lambda (orig-fun &rest args)
-                "Consider a sentence to have one space at the end."
-                (let ((sentence-end-double-space nil))
-                  (apply orig-fun args))))
-
-  (advice-add 'backward-sentence :around
-              (lambda (orig-fun &rest args)
-                "Consider a sentence to have one space at the end."
-                (let ((sentence-end-double-space nil))
-                  (apply orig-fun args))))
-
-  (advice-add 'kill-sentence :around
-              (lambda (orig-fun &rest args)
-                "Consider a sentence to have one space at the end."
-                (let ((sentence-end-double-space nil))
-                  (apply orig-fun args))))
+  ;; Use single space after sentences everywhere (no need for per-function advice)
+  (setq sentence-end-double-space nil)
 #+END_SRC
 
 A slightly less tricky matter is the default binding of backward- and forward-paragraph, which are at the inconvenient M-{ and M-}. This makes a bit more sense, no?
@@ -863,7 +775,8 @@ A slightly less tricky matter is the default binding of backward- and forward-pa
 #+END_SRC
 ** Cycle Spacing
 #+BEGIN_SRC emacs-lisp
-(bind-key "C-x SPC" 'cycle-spacing)
+;; C-x SPC is built-in rectangle-mark-mode, use M-SPC area for spacing
+(bind-key "M-S-SPC" 'cycle-spacing)
 #+END_SRC
 ** Special Key Maps
 *** [[http://endlessparentheses.com/the-toggle-map-and-wizardry.html][Toggle Map]]
@@ -899,7 +812,7 @@ Before this function, I was alternating between C-x n s (org-narrow-to-subtree) 
   (eval-after-load 'org-src
     '(bind-key "C-x C-s" 'org-edit-src-exit org-src-mode-map))
 #+END_SRC
-**** Cold Folding
+**** Code Folding
 For code folding, which is similar to narrowing and widening but different.
 
 #+BEGIN_SRC emacs-lisp
@@ -914,28 +827,30 @@ For code folding, which is similar to narrowing and widening but different.
       (hs-toggle-hiding)))
 #+END_SRC
 **** Toggle Read Only
-A lot of modes let you change from read-only to writeable, or backwards: files, Dired, and also wgrep-enabled modes. I use [[https://github.com/ggreer/the_silver_searcher][ag, the silver searcher]], instead of grep or ack. Anyways, this function decides which mode I am in and acts accordingly. That way, I need to remember just one key bind, C-x t r.
+A lot of modes let you change from read-only to writeable, or backwards: files, Dired, and also wgrep-enabled modes. This function decides which mode I am in and acts accordingly. That way, I need to remember just one key bind, C-x t r.
 
 #+BEGIN_SRC emacs-lisp
   (defun read-write-toggle ()
-    "Toggles read-only in any relevant mode: ag-mode, Dired, or
+    "Toggles read-only in any relevant mode: grep results, Dired, or
   just any file at all."
     (interactive)
-    (if (equal major-mode 'ag-mode)
-        ;; wgrep-ag can support ag-mode
-        (wgrep-change-to-wgrep-mode)
-      ;; dired-toggle-read-only has its own conditional:
-      ;; if the mode is Dired, it will make the directory writable
-      ;; if it is not, it will just toggle read only, as desired
-      (dired-toggle-read-only)))
+    (cond
+     ((derived-mode-p 'grep-mode)
+      (if (fboundp 'wgrep-change-to-wgrep-mode)
+          (wgrep-change-to-wgrep-mode)
+        (read-only-mode -1)))
+     ((derived-mode-p 'dired-mode)
+      (dired-toggle-read-only))
+     (t (read-only-mode 'toggle))))
 #+END_SRC
 **** Keymap
 #+BEGIN_SRC emacs-lisp
+  ;; Moved from C-x t to C-c T to avoid conflict with Emacs built-in tab-bar prefix
   (bind-keys :prefix-map toggle-map
-             :prefix "C-x t"
+             :prefix "C-c T"
              ("d" . toggle-debug-on-error)
              ("f" . toggle-fold)
-             ("l" . toggle-line-numbers)  ; Updated from linum-mode (Phase 6)
+             ("l" . toggle-line-numbers)
              ("n" . narrow-or-widen-dwim)
              ("o" . org-mode)
              ("r" . read-write-toggle)
@@ -1058,8 +973,8 @@ Over time, I've come to prefer Eshell over shell mode or Ansi-term. The main fea
     :bind (:map shell-mode-map
                 ("<s-up>" . comint-previous-input)
                 ("<s-down>" . comint-next-input))
+    :hook (shell-mode . dirtrack-mode)
     :init
-    (dirtrack-mode)
     (setq explicit-shell-file-name (cond ((is-linux-p) "/bin/zsh")
                                          ((is-mac-p) "/bin/zsh")))
     (when (is-mac-p)
@@ -1091,7 +1006,6 @@ For me, Dired is one of Emacs' (less-heralded) killer apps, along with Org-Mode 
     :ensure nil  ; built-in package
     :defer t
     :bind (("<f2>" . dired)
-           ("C-x C-d" . dired)
            :map dired-mode-map
            ("C-x o" . ace-window)
            ("<return>" . dired-find-alternate-file)
@@ -1178,8 +1092,6 @@ Dired-details lets me show or hide the details with ) and (, respectively. If, f
   ;; Updated from affe to use consult exclusively (Emacs 30 optimization)
   (bind-keys ("C-c f" . consult-find)        ; Replaced affe-find
              ("C-c g" . consult-ripgrep)     ; Replaced affe-grep
-             ("C-c d" . consult-ripgrep)
-             ("C-c D" . consult-ripgrep)
              ("C-s" . consult-line)
              ("C-r" . consult-line))
 
@@ -1211,22 +1123,25 @@ Dired-details lets me show or hide the details with ) and (, respectively. If, f
             eglot-autoshutdown t    ; Auto-shutdown unused servers
             eglot-extend-to-xref t)) ; Better xref integration
 
-
-    (add-hook 'python-mode-hook 'eglot-ensure)
-    (add-hook 'js-mode-hook 'eglot-ensure)
-    (add-hook 'typescript-mode-hook 'eglot-ensure)
-    (add-hook 'rust-mode-hook 'eglot-ensure)
-    (add-hook 'go-mode-hook 'eglot-ensure)
-    (add-hook 'java-mode-hook 'eglot-ensure)
-
-
-    (when (>= emacs-major-version 30)
-      (add-hook 'python-ts-mode-hook 'eglot-ensure)
-      (add-hook 'js-ts-mode-hook 'eglot-ensure)
-      (add-hook 'typescript-ts-mode-hook 'eglot-ensure)
-      (add-hook 'rust-ts-mode-hook 'eglot-ensure)
-      (add-hook 'go-ts-mode-hook 'eglot-ensure)
-      (add-hook 'java-ts-mode-hook 'eglot-ensure)))
+    ;; Use ts-mode hooks since major-mode-remap-alist maps legacy → ts modes
+    ;; Fallback to legacy hooks for Emacs 29 (no tree-sitter remapping)
+    (if (and (>= emacs-major-version 30)
+             (fboundp 'treesit-available-p)
+             (treesit-available-p))
+        (dolist (hook '(python-ts-mode-hook
+                        js-ts-mode-hook
+                        typescript-ts-mode-hook
+                        rust-ts-mode-hook
+                        go-ts-mode-hook
+                        java-ts-mode-hook))
+          (add-hook hook #'eglot-ensure))
+      (dolist (hook '(python-mode-hook
+                      js-mode-hook
+                      typescript-mode-hook
+                      rust-mode-hook
+                      go-mode-hook
+                      java-mode-hook))
+        (add-hook hook #'eglot-ensure))))
 #+END_SRC
 * Emacs
 These are helper packages that make Emacs even more awesome.
@@ -1238,39 +1153,14 @@ These are helper packages that make Emacs even more awesome.
     (setq gdb-many-windows t
           gdb-show-main t)
 
-
-    (setq project-switch-commands
-          '((project-find-file "Find file")
-            (project-find-regexp "Find regexp")
-            (project-dired "Dired")
-            (project-eshell "Eshell")
-            (magit-project-status "Magit" ?g)))
-
-
     (setq xref-search-program 'ripgrep  ; Use ripgrep if available
           xref-show-definitions-function #'xref-show-definitions-completing-read)
 
-
     (setq compilation-scroll-output 'first-error
-          compilation-skip-threshold 2)
+          compilation-skip-threshold 2))
 
-
-    (tab-bar-mode 1)
-    (setq tab-bar-new-tab-choice "*scratch*"
-          tab-bar-close-button-show nil
-          tab-bar-new-button-show nil))
-
-
-  (when (>= emacs-major-version 30)
-    (bind-keys :prefix-map project-prefix-map
-               :prefix "C-x p"
-               ("f" . project-find-file)
-               ("g" . project-find-regexp)
-               ("d" . project-dired)
-               ("s" . project-shell)
-               ("e" . project-eshell)
-               ("c" . project-compile)
-               ("k" . project-kill-buffers)))
+  ;; project-switch-commands, tab-bar, and C-x p bindings are configured
+  ;; in their dedicated sections below
 #+END_SRC
 
 ** Hydra
@@ -1385,7 +1275,7 @@ Modern completion stack using Vertico/Consult/Embark/Marginalia/Orderless.
     :defer t
     :bind (;; C-c bindings (mode-specific-map)
            ("C-c h" . consult-history)
-           ("C-c m" . consult-mode-command)
+           ("C-c M" . consult-mode-command)
            ("C-c k" . consult-kmacro)
 
            ;; C-x bindings (ctl-x-map)
@@ -1467,9 +1357,8 @@ Modern completion stack using Vertico/Consult/Embark/Marginalia/Orderless.
     (setq consult-narrow-key "<"))
 #+END_SRC
 
-*** Embark (Contextual Actions)
+*** Consult-Dir (Directory Navigation)
 #+BEGIN_SRC emacs-lisp
-  ;; Consult-dir - Enhanced directory navigation
   (use-package consult-dir
     :defer t
     :bind (("C-x C-d" . consult-dir)
@@ -1477,9 +1366,7 @@ Modern completion stack using Vertico/Consult/Embark/Marginalia/Orderless.
            ("C-x C-d" . consult-dir)
            ("C-x C-j" . consult-dir-jump-file))
     :config
-    (setq consult-dir-project-list-function nil)  ; Disable project integration if not needed
-
-    ;; Add common directory sources
+    (setq consult-dir-project-list-function nil)
     (setq consult-dir-default-command #'consult-dir-dired)
 
     ;; Integration with project.el (Emacs 28+)
@@ -1498,7 +1385,10 @@ Modern completion stack using Vertico/Consult/Embark/Marginalia/Orderless.
                            :enabled (lambda () (fboundp 'project-known-project-roots))
                            :items consult-dir--project-dirs)
                    'append)))
+#+END_SRC
 
+*** Embark (Contextual Actions)
+#+BEGIN_SRC emacs-lisp
   ;; Embark - Contextual actions on completion candidates
   (use-package embark
     :defer t
@@ -1638,9 +1528,7 @@ Modern, fast completion with Emacs 30 optimization and tree-sitter support.
   (autoload 'zap-up-to-char "misc"
     "Kill up to, but not including ARGth occurrence of CHAR.")
   (bind-key "M-Z" 'zap-up-to-char)
-#+END_SRC
-#+END_SRC
-#+BEGIN_SRC emacs-lisp
+
   (bind-keys :prefix-map avy-map
              :prefix "C-c j"
              ("c" . avy-goto-char)
@@ -1717,7 +1605,7 @@ Configured like Magnars in Emacs Rocks, [[http://emacsrocks.com/e09.html][Episod
       (setq smart-deletion-enabled t)
       (message "Smart deletion enabled")))
 
-  (bind-key "C-c h" 'toggle-smart-deletion)
+  (bind-key "C-c H" 'toggle-smart-deletion)
 #+END_SRC
 ** Files
 *** Automatic Saving
@@ -1798,7 +1686,6 @@ Regexes are great. Not everyone knows them, and most user interfaces don't expos
     :config
     (setq reb-re-syntax 'string))
 #+END_SRC
-#+END_SRC
 ** Multiple Occurrences
 *** Moving Between Multiple Occurrences
 
@@ -1822,13 +1709,14 @@ Regexes are great. Not everyone knows them, and most user interfaces don't expos
           search-whitespace-regexp ".*?"))
 
 #+END_SRC
-#+END_SRC
 
 ** Discoverability
 *** which-key
 #+BEGIN_SRC emacs-lisp
+  ;; which-key is built-in since Emacs 30
   (use-package which-key
-    :defer 0.3  ; Defer 0.3 seconds for faster startup
+    :ensure nil  ; Built-in, no need to install
+    :defer 0.3
     :init
     (add-hook 'after-init-hook #'which-key-mode)
     :config
@@ -1978,7 +1866,6 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
   (use-package magit
     :defer t
     :bind (("C-x g" . magit-status)
-           ("C-c g" . magit-status)
            :map magit-status-mode-map
            ("TAB" . magit-section-toggle)
            ("<C-tab>" . magit-section-cycle)
@@ -2027,7 +1914,6 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
                             'magit-insert-unpushed-to-upstream-or-recent
                             'replace))
 #+END_SRC
-#+END_SRC
 *** Project Management (Modern project.el)
 
 #+BEGIN_SRC emacs-lisp
@@ -2056,18 +1942,6 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
                ("k" . project-kill-buffers)
                ("b" . project-switch-to-buffer)
                ("s" . consult-ripgrep))  ; Use consult for better search
-
-
-    (bind-keys :prefix-map project-standard-map
-               :prefix "C-x p"
-               ("p" . project-switch-project)
-               ("f" . project-find-file)
-               ("g" . project-find-regexp)
-               ("d" . project-dired)
-               ("e" . project-eshell)
-               ("c" . project-compile)
-               ("k" . project-kill-buffers)
-               ("b" . project-switch-to-buffer))
 
 
     (bind-key "C-x C-b" 'ibuffer)
@@ -2108,9 +1982,6 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
 
 #+BEGIN_SRC emacs-lisp
   (when (>= emacs-major-version 26)
-    (setq flymake-suppress-zero-counters t
-          flymake-start-on-flymake-mode t)
-
     (setq flymake-fringe-indicator-position 'right-fringe
           flymake-suppress-zero-counters t
           flymake-start-on-flymake-mode t
@@ -2179,7 +2050,6 @@ This code from [[http://whattheemacsd.com/setup-magit.el-01.html][Magnars]] open
             help-at-pt-display-when-idle t)
       (help-at-pt-set-timer)))
 
-#+END_SRC
 #+END_SRC
 ** Developing in Emacs
 *** Whitespace
@@ -2420,14 +2290,14 @@ If I hated everything about Emacs, I would still use it for org-mode.
              :map org-mode-map
              ("C-c >" . org-time-stamp-inactive))
       :init
-      (setq default-major-mode 'org-mode
+      (setq major-mode 'org-mode  ; default-major-mode was removed in Emacs 24
             org-directory "~/org"
             org-log-done t
             org-startup-indented t
             org-startup-folded t
             org-startup-truncated nil
             org-startup-with-inline-images t
-            org-completion-use-ido t
+            org-completion-use-ido nil  ; Using Vertico, not ido
             org-default-notes-file "~/org/gtd/inbox.org"
             org-image-actual-width '(300)
             org-goto-max-level 10
@@ -2480,8 +2350,8 @@ If I hated everything about Emacs, I would still use it for org-mode.
             ;; Whether to make events from plain time stamps.
             org-icalendar-with-timestamps 'active
             ;; Mobile Org
-            org-mobile-inbox-for-pull  "~/org/flagged.org" ;; Set to the name of the file where new notes will be stored
-            org-mobile-directory "~/Dropbox/Apps/MobileOrg") ;; Set to <your Dropbox root directory>/MobileOrg.
+            org-mobile-inbox-for-pull  "~/org/flagged.org"
+            org-mobile-directory "~/Dropbox/Apps/MobileOrg")
 
       (add-to-list 'org-global-properties
                    '("Effort_ALL". "0:05 0:15 0:30 1:00 2:00 3:00 4:00"))
@@ -2507,15 +2377,14 @@ If I hated everything about Emacs, I would still use it for org-mode.
 **** org-modules
 #+BEGIN_SRC emacs-lisp
   (setq org-modules '(org-habit org-tempo org-protocol))
-  (org-load-modules-maybe t)
+  (with-eval-after-load 'org
+    (org-load-modules-maybe t))
 
 
   (setq org-startup-with-latex-preview nil  ; Can be slow on large files
-        org-image-actual-width '(400)       ; Reasonable default image width
-        org-hide-emphasis-markers t         ; Clean appearance
-        org-pretty-entities t               ; Pretty symbols
-        org-startup-indented t              ; Visual indentation
         org-adapt-indentation nil)          ; Don't indent content
+  ;; org-image-actual-width, org-hide-emphasis-markers, org-pretty-entities,
+  ;; org-startup-indented are set in the org :init block above
 
 
   (when (>= emacs-major-version 30)
@@ -2554,56 +2423,12 @@ If I hated everything about Emacs, I would still use it for org-mode.
 
 #+BEGIN_SRC emacs-lisp
   (use-package org-cliplink
-    :bind ("C-x p i" . org-cliplink))
+    :bind ("C-c L" . org-cliplink))  ; Was C-x p i, conflicts with project prefix
 #+END_SRC
 
 **** org-modern (Modern Visuals)
-#+BEGIN_SRC emacs-lisp
-;;  (use-package org-modern
-;;    :defer t
-;;    :hook ((org-mode . org-modern-mode)
-;;           (org-agenda-finalize . org-modern-agenda))
-;;    :config
-;;
-;;    (setq org-modern-star '("◉" "○" "✸" "✿" "✤" "✜" "◆" "▶")
-;;
-;;          ;; Table styling
-;;          org-modern-table-vertical 1
-;;          org-modern-table-horizontal 0.2
-;;
-;;          ;; List bullets (migrated from org-superstar)
-;;          ;; 43 = '+', 45 = '-', 42 = '*'
-;;          org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
-;;
-;;          ;; Block styling
-;;          org-modern-block-fringe nil
-;;          org-modern-block-name '((t . t) (t . t))
-;;          org-modern-keyword nil
-;;
-;;          ;; Checkbox styling (migrated from org-superstar)
-;;          ;; 88 = 'X' (checked), 45 = '-' (partial), 32 = ' ' (unchecked)
-;;          org-modern-checkbox '((88 . "☑") (45 . "□") (32 . "☐"))
-;;
-;;          ;; Horizontal rules
-;;          org-modern-horizontal-rule "─"
-;;
-;;          ;; Priority styling
-;;          org-modern-priority t
-;;
-;;          ;; TODO keyword faces (enhanced from org-superstar)
-;;          ;; org-superstar used emoji bullets, org-modern adds colors
-;;          org-modern-todo-faces
-;;          '(("TODO" :background "#E06C75" :foreground "#282C34" :weight bold)
-;;            ("NEXT" :background "#98C379" :foreground "#282C34" :weight bold)
-;;            ("DONE" :background "#56B6C2" :foreground "#282C34" :weight bold)
-;;            ("WAITING" :background "#E5C07B" :foreground "#282C34" :weight bold)
-;;            ("HOLD" :background "#C678DD" :foreground "#282C34" :weight bold)
-;;            ("CANCELLED" :background "#5C6370" :foreground "#282C34" :weight bold))
-;;            )
-;;
-;;
-;;    (setq org-hide-leading-stars nil))
-#+END_SRC
+Currently disabled. Install with =M-x package-install RET org-modern RET= and uncomment to enable.
+Previous configuration is available in git history.
 
 **** org-appear
 #+BEGIN_SRC emacs-lisp
@@ -2658,7 +2483,7 @@ If I hated everything about Emacs, I would still use it for org-mode.
   ;; Alternative: Use consult with org-ql for powerful org searching
   (use-package org-ql
     :defer t
-    :bind ("C-c o" . org-ql-search))
+    :bind ("C-c O" . org-ql-search))
 
   (bind-keys :map org-mode-map
              ("C-c o h" . consult-org-heading)
@@ -2668,11 +2493,10 @@ If I hated everything about Emacs, I would still use it for org-mode.
 #+BEGIN_SRC emacs-lisp
 
   (use-package yasnippet
-    :defer t
-    :init
-    (yas-global-mode 1)
+    :defer 1  ; Defer 1 second, then activate globally
     :config
     (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
+    (yas-global-mode 1)
 
     (setq yas-buffer-local-condition
           '(if (nth 8 (syntax-ppss)) '(require-snippet-condition . force-in-comment))))
@@ -2693,7 +2517,7 @@ If I hated everything about Emacs, I would still use it for org-mode.
 #+BEGIN_SRC emacs-lisp
 (add-to-list 'org-modules 'mac-link)
 (add-hook 'org-mode-hook (lambda ()
-  (define-key org-mode-map (kbd "C-c g") 'org-mac-grab-link)))
+  (define-key org-mode-map (kbd "C-c G") 'org-mac-grab-link)))
 #+END_SRC
 *** Functionality
 **** Agendas
@@ -2715,11 +2539,9 @@ If I hated everything about Emacs, I would still use it for org-mode.
     :commands (org-super-agenda-mode)
     :hook (org-agenda-mode . org-super-agenda-mode)
     :config
-    ;; Enable folding
-    (use-package origami
-      :bind (:map org-super-agenda-header-map
-                  ("TAB" . origami-toggle-node))
-      :hook ((org-agenda-mode . origami-mode))))
+    ;; Enable folding with built-in outline-minor-mode (replaces origami)
+    (add-hook 'org-agenda-mode-hook #'outline-minor-mode)
+    (define-key org-super-agenda-header-map (kbd "TAB") #'outline-toggle-children))
 
   ;; Custom agenda functions (defined outside use-package)
   (defun my-org-super-agenda ()
@@ -3159,9 +2981,7 @@ Task can just archive normally to the Archive heading in the archive file
    (shell . t)))
 #+END_SRC
 **** Sentence-End
-#+BEGIN_SRC emacs-lisp
-(setq sentence-end-double-space nil)
-#+END_SRC
+Set in Sentence and Paragraph Commands section above.
 **** Easy Bind To Open Todos
 #+BEGIN_SRC emacs-lisp
   (defun open-todo-file ()
@@ -3241,8 +3061,6 @@ The first function comes from a [[https://stackoverflow.com/questions/9991597/ho
 #+END_SRC
 ** Modern Editing Enhancements
 
-#+END_SRC
-
 *** Multiple Cursors (Modern)
 #+BEGIN_SRC emacs-lisp
   ;; Modern multiple cursor support
@@ -3255,8 +3073,6 @@ The first function comes from a [[https://stackoverflow.com/questions/9991597/ho
            ("C-S-<mouse-1>" . mc/add-cursor-on-click))
     :config
     (setq mc/always-run-for-all t))
-#+END_SRC
-
 #+END_SRC
 ** Spell Checking (Flyspell)
 #+BEGIN_SRC emacs-lisp
@@ -3287,7 +3103,6 @@ Hit =C-c /= to run =pandoc-main-hydra/body=, the main entry point for =pandoc-mo
 #+BEGIN_SRC emacs-lisp
   (use-package csv-mode
     :mode ("\\.csv$" . csv-mode))
-#+END_SRC
 #+END_SRC
 ** Ledger-cli
 #+BEGIN_SRC emacs-lisp
@@ -3400,9 +3215,10 @@ This function creates an agenda of stuck projects that is restricted to my "Proj
                ("w" . my-new-weekly-review)
                ("m" . my-new-monthly-review))
 
-    (f-touch "~/org/tmp/reviews.org")
-#+END_SRC
-#+END_SRC
+    (let ((review-file (expand-file-name "~/org/tmp/reviews.org")))
+      (unless (file-exists-p review-file)
+        (make-directory (file-name-directory review-file) t)
+        (write-region "" nil review-file)))
 #+END_SRC
 * Functions
 ** Emacs Configuration File
@@ -3444,11 +3260,13 @@ Relatedly, I often want to reload my init-file. This will actually use the syste
 By default, pressing 'q' in Dired, the packages menu, or Elfeed runs quit-window, which quits the window and buries its buffer. I'd prefer the buffer to close.
 
 #+BEGIN_SRC emacs-lisp
-  (bind-keys :map dired-mode-map
-             ("q" . kill-this-buffer))
+  (with-eval-after-load 'dired
+    (bind-keys :map dired-mode-map
+               ("q" . kill-this-buffer)))
 
-  (bind-keys :map package-menu-mode-map
-             ("q" . kill-this-buffer))
+  (with-eval-after-load 'package
+    (bind-keys :map package-menu-mode-map
+               ("q" . kill-this-buffer)))
 #+END_SRC
 *** Kill All Other Buffers
 #+BEGIN_SRC emacs-lisp
@@ -3477,11 +3295,10 @@ This tip comes from an [[http://emacs-fu.blogspot.kr/2013/03/editing-with-root-p
 
 #+BEGIN_SRC emacs-lisp
   (defun find-file-as-root ()
-    "Like `ido-find-file, but automatically edit the file with
-  root-privileges (using tramp/sudo), if the file is not writable by
-  user."
+    "Find file, automatically edit with root-privileges (using
+  tramp/sudo) if the file is not writable by user."
     (interactive)
-    (let ((file (ido-read-file-name "Edit as root: ")))
+    (let ((file (read-file-name "Edit as root: ")))
       (unless (file-writable-p file)
         (setq file (concat "/sudo:root@localhost:" file)))
       (find-file file)))

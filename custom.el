@@ -25,25 +25,7 @@
  '(mml-secure-openpgp-sign-with-sender t)
  '(mml-secure-smime-sign-with-sender t)
  '(objed-cursor-color "#aa4450")
- '(package-selected-packages
-   '(all-the-icons-completion all-the-icons-dired cape consult-dir
-			      consult-org-roam corfu csv-mode
-			      dired-collapse dired-filter
-			      dired-quick-sort dired-rainbow
-			      dired-subtree doom-modeline doom-themes
-			      embark-consult esh-autosuggest
-			      eshell-prompt-extras
-			      eshell-syntax-highlighting expand-region
-			      flymake-diagnostic-at-point kind-icon
-			      ledger-mode ligature marginalia
-			      markdown-mode multiple-cursors orderless
-			      org-appear org-cliplink org-download
-			      org-modern org-preview-html org-ql
-			      origami ox-clip ox-hugo ox-twbs
-			      pandoc-mode puni rainbow-delimiters
-			      symbol-overlay treemacs-icons-dired
-			      treemacs-magit vertico vundo wgrep
-			      yaml-mode yasnippet-snippets))
+ '(package-selected-packages nil)
  '(pdf-view-midnight-colors (cons "#c2c2b0" "#222222"))
  '(rustic-ansi-faces
    ["#222222" "#aa4450" "#87875f" "#cc8800" "#87AFD7" "#8787AF" "#87ceeb"
