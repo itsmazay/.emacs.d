@@ -2921,30 +2921,24 @@ Add structure templates for editing Emacs Lisp and encrypting an org-mode file.
 **** Tagging
 #+BEGIN_SRC emacs-lisp
   (setq org-tag-alist '(
-                        ;; Depth
-                        ("@immersive" . ?i) ;; "Deep"
-                        ("@process" . ?p) ;; "Shallow"
-                        ;; Context
+                        ;; Context (where / with what tools)
                         ("@office" . ?o)
                         ("@home" . ?h)
                         ("@errand" . ?e)
-                        ;; Time
-                        ("15min" . ?<)
-                        ("30min" . ?=)
-                        ("1h" . ?>)
-                        ;; Energy
-                        ("Challenge" . ?1)
-                        ("Average" . ?2)
-                        ("Easy" . ?3)
-                        ;; Encryption
+                        ;; System
+                        ("REFILE" . ?R)
                         ("crypt" . ?c)
                         ))
 #+END_SRC
 **** Archiving
-Task can just archive normally to the Archive heading in the archive file
+Archive to a sibling =<file>_archive= per source file. The default
+=%s_archive::= keeps gtd.org lean while preserving full context
+(=ARCHIVE_OLPATH=, tags, todo state) on every archived heading.
 #+BEGIN_SRC emacs-lisp
     (setq org-archive-mark-done nil)
-    (setq org-archive-location "~/org/gtd/gtd.org::* Archives")
+    (setq org-archive-location "%s_archive::")
+    (setq org-archive-save-context-info
+          '(time file ltags itags todo category olpath))
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp
