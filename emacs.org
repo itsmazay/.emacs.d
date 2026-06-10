@@ -15,6 +15,7 @@ If you're loading this configuration for the first time and see package errors:
 1. **Remove corrupted packages**: Run `M-x remove-corrupted-packages`
 2. **Restart Emacs**: The configuration uses built-in features, no external packages needed
 3. **Install development tools** (for Tree-sitter): `xcode-select --install` on macOS
+4. **Install Nerd Font icons**: Run `M-x nerd-icons-install-fonts` (or `brew install --cask font-symbols-only-nerd-font`)
 
 ** Startup Performance
 
